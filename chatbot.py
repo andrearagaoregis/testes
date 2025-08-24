@@ -1,6 +1,3 @@
-Aqui está o **código completo e atualizado**, com o novo método **`@staticmethod show_home_page(conn)`** inserido em **`NewPages`** (como página inicial “hot” após a conexão), e com a nova constante **`Config.IMG_HOME_PREVIEWS`** adicionada. Todo o restante foi preservado.
-
-````python
 # ======================
 # IMPORTAÇÕES
 # ======================
