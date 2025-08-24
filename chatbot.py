@@ -1,3 +1,6 @@
+Aqui está o **código completo e atualizado**, com o novo método **`@staticmethod show_home_page(conn)`** inserido em **`NewPages`** (como página inicial “hot” após a conexão), e com a nova constante **`Config.IMG_HOME_PREVIEWS`** adicionada. Todo o restante foi preservado.
+
+````python
 # ======================
 # IMPORTAÇÕES
 # ======================
@@ -129,6 +132,11 @@ class Config:
         "https://i.ibb.co/VY42ZMST/BY-Admiregirls-su-Admiregirls-su-255.jpg",
         "https://i.ibb.co/Q7s9Zwcr/BY-Admiregirls-su-Admiregirls-su-183.jpg",
         "https://i.ibb.co/0jRMxrFB/BY-Admiregirls-su-Admiregirls-su-271.jpg"
+    ]
+    # >>> NOVO: Prévias usadas na Home
+    IMG_HOME_PREVIEWS = [
+        "https://i.ibb.co/VY42ZMST/BY-Admiregirls-su-Admiregirls-su-255.jpg",
+        "https://i.ibb.co/Q7s9Zwcr/BY-Admiregirls-su-Admiregirls-su-183.jpg",
     ]
     SOCIAL_LINKS = {
         "instagram": "https://instagram.com/myllealves",
@@ -381,7 +389,6 @@ def save_persistent_data() -> None:
         'conversation_stage', 'lead_name', 'last_interaction_time', 
         'user_info_collected', 'last_user_message_time', 'audio_count'
     ]
-    
     new_data = {key: st.session_state.get(key) for key in persistent_keys if key in st.session_state}
     db.save_state(user_id, new_data)
 
@@ -489,8 +496,6 @@ class CTAEngine:
         # Usar áudio em aproximadamente 15% das respostas
         if 'audio_count' not in st.session_state:
             st.session_state.audio_count = 0
-            
-        # Alternar entre texto e áudio (15% áudio, 85% texto)
         return random.random() < 0.15
 
     def generate_response_based_on_learning(self, user_input: str, user_id: str) -> Dict:
@@ -1042,28 +1047,72 @@ class UiService:
 # ======================
 class NewPages:
     @staticmethod
-    def show_home_page() -> None:
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #1e0033, #3c0066);
-            padding: 50px 20px;
-            text-align: center;
-            border-radius: 15px;
-            color: white;
-            margin-bottom: 30px;
-            border: 2px solid #ff66b3;
-            box-shadow: 0 8px 25px rgba(255, 102, 179, 0.2);
-        ">
-            <h1 style="color: #ff66b3; margin-bottom: 10px;">Mylle Alves</h1>
-            <p style="font-size: 1.1em; opacity: 0.9;">Sua especialista em conteúdo adulto premium 🔥</p>
-            <p style="font-size: 0.9em; opacity: 0.7; margin-top: 10px;">Aqui eu comando - você obedece 😈</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("💬 Iniciar Conversa com Mylle", use_container_width=True, type="primary"):
-            st.session_state.current_page = "chat"
-            save_persistent_data()
-            st.rerun()
+    def show_home_page(conn):
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.image(Config.IMG_PROFILE, use_column_width=True)
+            st.markdown("""
+            <div style="text-align: center; margin-top: 10px;">
+                <h3 style="color: #ff66b3;">Mylle Alves</h3>
+                <p style="color: #888;">Online agora 💚</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            st.markdown("""
+            <div style="
+                background: rgba(255, 102, 179, 0.1);
+                padding: 15px;
+                border-radius: 10px;
+            ">
+                <h4>📊 Meu Perfil</h4>
+                <p>👙 85-60-90</p>
+                <p>📏 1.68m</p>
+                <p>🎂 22 anos</p>
+                <p>📍 São Paulo</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div style="
+                background: linear-gradient(45deg, #ff66b3, #ff1493);
+                padding: 20px;
+                border-radius: 10px;
+                color: white;
+                text-align: center;
+                margin-bottom: 20px;
+            ">
+                <h2>💋 Bem-vindo ao Meu Mundo</h2>
+                <p>Conversas quentes e conteúdo exclusivo esperando por você!</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div style="
+                background: rgba(255, 102, 179, 0.1);
+                padding: 20px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+            ">
+                <h4>🎯 O que você encontra aqui:</h4>
+                <p>• 💬 Chat privado comigo</p>
+                <p>• 📸 Fotos exclusivas e sensuais</p>
+                <p>• 🎥 Vídeos quentes e explícitos</p>
+                <p>• 🎁 Conteúdo personalizado</p>
+                <p>• 🔞 Experiências únicas</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Preview images
+            st.markdown("### 🌶️ Prévia do Conteúdo")
+            preview_cols = st.columns(2)
+            for idx, col in enumerate(preview_cols):
+                if idx < len(Config.IMG_HOME_PREVIEWS):
+                    with col:
+                        st.image(Config.IMG_HOME_PREVIEWS[idx], use_column_width=True)
 
     @staticmethod
     def show_offers_page() -> None:
@@ -1509,7 +1558,8 @@ def main():
         st.stop()
     
     if st.session_state.current_page == "home":
-        NewPages.show_home_page()
+        # >>> Agora a home usa a nova versão solicitada
+        NewPages.show_home_page(conn)
     elif st.session_state.current_page == "gallery":
         UiService.show_gallery_page()
     elif st.session_state.current_page == "offers":
@@ -1521,3 +1571,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+````
