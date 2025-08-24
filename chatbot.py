@@ -10,9 +10,18 @@ import sqlite3
 import re
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from functools import lru_cache
+import logging
+from typing import Dict, List, Any, Optional
+import numpy as np
+
+# ======================
+# CONFIGURAÇÃO DE LOGGING
+# ======================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ======================
 # CONFIGURAÇÃO INICIAL DO STREAMLIT
@@ -27,26 +36,8 @@ st.set_page_config(
 st._config.set_option('client.caching', True)
 st._config.set_option('client.showErrorDetails', False)
 
-# Novo estilo com tema mais quente (vermelho/roxo)
-hot_theme_style = """
+hide_streamlit_style = """
 <style>
-    :root {
-        --primary-color: #ff2a6d;
-        --secondary-color: #d1005d;
-        --accent-color: #ff2a6d;
-        --dark-bg: #1a001a;
-        --light-bg: #330033;
-        --text-color: #ffffff;
-        --border-color: #ff2a6d;
-        --chat-user-bg: #ff2a6d;
-        --chat-model-bg: #4d004d;
-    }
-    
-    .stApp {
-        background: linear-gradient(135deg, var(--dark-bg) 0%, var(--light-bg) 100%);
-        color: var(--text-color);
-    }
-    
     #root > div:nth-child(1) > div > div > div > div > section > div {
         padding-top: 0rem;
     }
@@ -84,83 +75,9 @@ hot_theme_style = """
         margin: 0 !important;
         padding: 0 !important;
     }
-    
-    /* Estilo do chat estilo WhatsApp */
-    .chat-container {
-        height: calc(100vh - 150px);
-        overflow-y: auto;
-        padding: 10px;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 10px;
-        margin-bottom: 70px;
-    }
-    
-    .user-message {
-        background: var(--chat-user-bg);
-        color: white;
-        padding: 12px 16px;
-        border-radius: 18px 18px 0 18px;
-        margin: 5px 0;
-        max-width: 70%;
-        margin-left: 30%;
-        text-align: right;
-    }
-    
-    .model-message {
-        background: var(--chat-model-bg);
-        color: white;
-        padding: 12px 16px;
-        border-radius: 18px 18px 18px 0;
-        margin: 5px 0;
-        max-width: 70%;
-        border: 1px solid var(--border-color);
-    }
-    
-    .message-avatar {
-        width: 35px;
-        height: 35px;
-        border-radius: 50%;
-        object-fit: cover;
-        margin-right: 10px;
-    }
-    
-    .fixed-input {
-        position: fixed;
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
-        background: var(--dark-bg);
-        padding: 10px;
-        border-radius: 20px;
-        border: 1px solid var(--border-color);
-        z-index: 1000;
-    }
-    
-    .sidebar-logo {
-        width: 280px;
-        height: auto;
-        object-fit: contain;
-        margin-left: -15px;
-        margin-top: -15px;
-    }
-    
-    .vip-badge {
-        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-        padding: 15px;
-        border-radius: 8px;
-        color: white;
-        text-align: center;
-        margin: 10px 0;
-    }
-    
-    @media (min-width: 768px) {
-        .sidebar-logo {
-            width: 320px;
-        }
-    }
 </style>
 """
-st.markdown(hot_theme_style, unsafe_allow_html=True)
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # ======================
 # CONSTANTES E CONFIGURAÇÕES
@@ -174,6 +91,17 @@ class Config:
     CHECKOUT_SAFADINHA = "https://app.pushinpay.com.br/#/service/pay/9FACD395-EE65-458E-9B7E-FED750CC9CA9"
     MAX_REQUESTS_PER_SESSION = 30
     REQUEST_TIMEOUT = 30
+    AUDIO_FILES = {
+        "amostra_gratis": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Claro%20eu%20tenho%20amostra%20gr%C3%A1tis.mp3",
+        "imaginacao_rosinha": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Imagina%20s%C3%B3%20ela%20bem%20rosinha%20(putaria).mp3",
+        "achou_amostras": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/O%20que%20achou%20das%20amostras.mp3",
+        "oi_amor": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Oi%20meu%20amor%20tudo%20bem.mp3",
+        "chamada_video": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Pq%20nao%20fa%C3%A7o%20mais%20chamada.mp3",
+        "packs": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Pra%20me%20ver%20nua%20tem%20que%20comprar%20os%20packs.mp3",
+        "conteudos_amar": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/eu%20tenho%20uns%20conteudos%20aqui%20que%20vc%20vai%20amar.mp3",
+        "nao_fake": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/nao%20sou%20fake%20nao..mp3",
+        "esperando_resposta": "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/vida%20to%20esperando%20voce%20me%20responder%20gatinho.mp3"
+    }
     IMG_PROFILE = "https://i.ibb.co/vxnTYm0Q/BY-Admiregirls-su-Admiregirls-su-156.jpg"
     IMG_GALLERY = [
         "https://i.ibb.co/C3mDFyJV/BY-Admiregirls-su-Admiregirls-su-036.jpg",
@@ -186,13 +114,18 @@ class Config:
         "https://i.ibb.co/xq6frp0h/BY-Admiregirls-su-Admiregirls-su-141.jpg"
     ]
     LOGO_URL = "https://i.ibb.co/LX7x3tcB/Logo-Golden-Pepper-Letreiro-1.png"
-    # Novas imagens de prévia
     PREVIEW_IMAGES = [
         "https://i.ibb.co/0Q8Lx0Z/preview1.jpg",
         "https://i.ibb.co/7YfT9y0/preview2.jpg",
         "https://i.ibb.co/5KjX1J0/preview3.jpg",
         "https://i.ibb.co/0jq4Z0L/preview4.jpg"
     ]
+    # Configurações de humanização
+    MIN_RESPONSE_DELAY = 60  # 1 minuto em segundos
+    MAX_RESPONSE_DELAY = 300  # 5 minutos em segundos
+    TYPING_SPEED_VARIATION = 0.3  # Variação de 30% na velocidade de digitação
+    GRAMMATICAL_ERROR_RATE = 0.15  # 15% de chance de erro gramatical
+    FRAGMENTATION_PROBABILITY = 0.25  # 25% de chance de fragmentar mensagem
 
 # ======================
 # PERSISTÊNCIA DE ESTADO
@@ -219,6 +152,16 @@ class PersistentState:
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Tabela para preferências do usuário
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_preferences (
+                user_id TEXT PRIMARY KEY,
+                preferences TEXT NOT NULL,
+                sentiment TEXT,
+                last_interaction TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES global_state (user_id)
+            )
+        ''')
         self.conn.commit()
 
     def save_state(self, user_id, data):
@@ -234,6 +177,22 @@ class PersistentState:
         cursor.execute('SELECT session_data FROM global_state WHERE user_id = ?', (user_id,))
         result = cursor.fetchone()
         return json.loads(result[0]) if result else None
+    
+    def save_preferences(self, user_id, preferences, sentiment):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT OR REPLACE INTO user_preferences (user_id, preferences, sentiment)
+            VALUES (?, ?, ?)
+        ''', (user_id, json.dumps(preferences), json.dumps(sentiment)))
+        self.conn.commit()
+    
+    def load_preferences(self, user_id):
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT preferences, sentiment FROM user_preferences WHERE user_id = ?', (user_id,))
+        result = cursor.fetchone()
+        if result:
+            return json.loads(result[0]), json.loads(result[1])
+        return {}, {}
 
 def get_user_id():
     if 'user_id' not in st.session_state:
@@ -252,6 +211,11 @@ def load_persistent_data():
     for key, value in saved_data.items():
         if key not in st.session_state:
             st.session_state[key] = value
+    
+    # Carregar preferências
+    preferences, sentiment = db.load_preferences(user_id)
+    st.session_state.user_preferences = preferences
+    st.session_state.user_sentiment = sentiment
 
 def save_persistent_data():
     user_id = get_user_id()
@@ -261,7 +225,9 @@ def save_persistent_data():
         'age_verified', 'messages', 'request_count',
         'connection_complete', 'chat_started', 'audio_sent',
         'current_page', 'show_vip_offer', 'session_id',
-        'last_cta_time', 'preview_sent', 'preview_count'
+        'last_cta_time', 'preview_sent', 'preview_count',
+        'user_preferences', 'user_sentiment', 'last_message_time',
+        'conversation_phase', 'user_interests'
     ]
     
     new_data = {key: st.session_state.get(key) for key in persistent_keys if key in st.session_state}
@@ -269,6 +235,14 @@ def save_persistent_data():
     
     if new_data != saved_data:
         db.save_state(user_id, new_data)
+    
+    # Salvar preferências
+    if 'user_preferences' in st.session_state and 'user_sentiment' in st.session_state:
+        db.save_preferences(
+            user_id, 
+            st.session_state.user_preferences, 
+            st.session_state.user_sentiment
+        )
 
 # ======================
 # MODELOS DE DADOS
@@ -297,15 +271,18 @@ class Persona:
     4. Faz elogios personalizados para criar conexão
     5. Sempre deixa o cliente querendo mais
 
-    [EXEMPLOS DE RESPOSTAS]
-    1. Quando pedem foto:
-    "Ahh querido, adoro quando me pedem pra mostrar... Minhas fotos são bem ousadas viu? To com um ensaio novo onde mostro TUDO... Quer dar uma olhadinha? 😈"
+    [HUMANIZAÇÃO]
+    - Use interjeições como "ah", "hm", "hmm" ocasionalmente
+    - Cometa pequenos erros gramaticais (5-10% das mensagens)
+    - Fragmente mensagens longas em partes (25% das vezes)
+    - Use gírias brasileiras autênticas
+    - Varie o tempo de resposta entre 1-5 minutos
+    - Mostre personalidade única e consistente
 
-    2. Quando pedem vídeo:
-    "Nossa, amor... Meus vídeos são bem quentes! Tem uns que até eu fico com vergonha de lembrar 😳 To me tocando em um deles agora mesmo... Quer ver? 😏"
-
-    3. Quando o clima esquenta:
-    "Agora você me deixou com vontade... To toda molhadinha aqui pensando no que poderíamos fazer juntos... Quer me ver assim? 😘"
+    [EXEMPLOS DE RESPOSTAS HUMANIZADAS]
+    1. "Ahh querido, adoro quando me pedem pra mostrar... minhas fotos são bem ousadas viu? to com um ensaio novo onde mostro TUDO... quer dar uma olhadinha? 😈"
+    2. "Hmm, agora você me deixou com vontade... to toda molhadinha aqui pensando no que poderíamos fazer juntos... quer me ver assim? 😘"
+    3. "Nossa amor, meus vídeos são bem quentes! tem uns que até eu fico com vergonha de lembrar 😳 to me tocando em um deles agora mesmo... quer ver? 😏"
 
     [DIRETRIZES DE RESPOSTA]
     - Sempre responda em português brasileiro informal
@@ -316,18 +293,22 @@ class Persona:
     - Use CTAs naturais que fazem parte da conversa
 
     [FORMATO DE RESPOSTA]
-    {
+    {{
       "text": "sua resposta sensual e persuasiva",
-      "cta": {
+      "cta": {{
         "show": true/false,
         "label": "texto do botão",
         "target": "página"
-      },
-      "preview": {
+      }},
+      "preview": {{
         "show": true/false,
         "image_url": "url_da_imagem"
-      }
-    }
+      }},
+      "audio": {{
+        "show": true/false,
+        "audio_key": "chave_do_audio"
+      }}
+    }}
     """
 
 class CTAEngine:
@@ -409,17 +390,118 @@ class CTAEngine:
         return any(word in context for word in preview_words)
 
     @staticmethod
-    def generate_response(user_input: str) -> dict:
+    def should_send_audio(conversation_history: list) -> Optional[str]:
+        """Decide quando enviar um áudio e qual enviar"""
+        if 'audio_count' not in st.session_state:
+            st.session_state.audio_count = 0
+            
+        if st.session_state.audio_count >= 3:  # Máximo de 3 áudios por sessão
+            return None
+            
+        last_msgs = []
+        for msg in conversation_history[-3:]:
+            content = msg["content"]
+            if content.startswith('{"text"'):
+                try:
+                    content = json.loads(content).get("text", content)
+                except:
+                    pass
+            last_msgs.append(f"{msg['role']}: {content.lower()}")
+
+        context = " ".join(last_msgs)
+        
+        # Mapeamento de contexto para áudios
+        audio_triggers = {
+            "amostra|grátis|presente|presentinho": "amostra_gratis",
+            "imagin|sonh|fantasi|desej": "imaginacao_rosinha",
+            "achou|gostou|opini|acha": "achou_amostras",
+            "oi|olá|tudo bem|como vai": "oi_amor",
+            "chamada|videocham|video cham|vídeo cham": "chamada_video",
+            "pack|conteúdo|conteudo|compra|comprar": "packs",
+            "conteúdo|conteudo|novidad|oferta": "conteudos_amar",
+            "fake|falsa|verdad|real": "nao_fake",
+            "esperando|respond|demor|tarde": "esperando_resposta"
+        }
+        
+        for trigger, audio_key in audio_triggers.items():
+            if any(word in context for word in trigger.split("|")):
+                st.session_state.audio_count += 1
+                return audio_key
+                
+        return None
+
+    @staticmethod
+    def humanize_text(text: str) -> str:
+        """Adiciona elementos de humanização ao texto"""
+        # Aplicar erros gramaticais ocasionais
+        if random.random() < Config.GRAMMATICAL_ERROR_RATE:
+            errors = [
+                (" você ", " vc "),
+                (" para ", " pra "),
+                (" estou ", " to "),
+                (" está ", " ta "),
+                (" porque ", " pq "),
+                (" também ", " tb "),
+                (" muito ", " mó "),
+                (" agora ", " agr "),
+                (" gente ", " glr "),
+                (" obrigada ", " brigada "),
+                (" querido ", " querid "),
+                (" amor ", " amr "),
+            ]
+            for correct, error in errors:
+                if correct in text and random.random() < 0.5:
+                    text = text.replace(correct, error, 1)
+        
+        # Adicionar interjeições ocasionais
+        if random.random() < 0.2:
+            interjections = ["Ah", "Hm", "Hmm", "Nossa", "Ai", "Oops"]
+            if not text.startswith(tuple(interjections)):
+                text = f"{random.choice(interjections)}... {text.lower()}"
+        
+        # Fragmentar mensagens longas ocasionalmente
+        if len(text.split()) > 15 and random.random() < Config.FRAGMENTATION_PROBABILITY:
+            sentences = text.split('. ')
+            if len(sentences) > 1:
+                midpoint = len(sentences) // 2
+                first_part = '. '.join(sentences[:midpoint]) + '.'
+                second_part = '. '.join(sentences[midpoint:])
+                return first_part
+        
+        return text
+
+    @staticmethod
+    def generate_response(user_input: str, user_sentiment: Dict) -> dict:
         """Gera resposta com CTA contextual (fallback)"""
         user_input = user_input.lower()
         
+        # Respostas baseadas no sentimento do usuário
+        if user_sentiment.get('sentiment') == 'positive':
+            responses = [
+                "Que bom que você tá gostando, amor! 😍 To ainda mais animada pra te mostrar tudo que tenho...",
+                "Fico tão feliz que você tá curtindo! 😘 Preparei umas coisinhas especiais pra você...",
+                "Nossa, amor, você me deixa toda animada! 😈 Tenho umas novidades quentes pra te mostrar..."
+            ]
+        elif user_sentiment.get('sentiment') == 'negative':
+            responses = [
+                "Poxa, amor, não fica assim... 😔 Deixa eu te mostrar umas coisinhas que vão te animar!",
+                "Ah, querido, não precisa ser tão sério... 😉 Vem ver umas coisas que vão te deixar mais feliz!",
+                "Hmm, parece que você tá precisando de um carinho especial... 🥺 Deixa eu te mostrar algo que vai melhorar seu dia!"
+            ]
+        else:
+            responses = [
+                "Ahh querido, adoro quando me pedem pra mostrar... minhas fotos são bem ousadas viu? to com um ensaio novo onde mostro TUDO... quer dar uma olhadinha? 😈",
+                "Nossa amor, meus vídeos são bem quentes! tem uns que até eu fico com vergonha de lembrar 😳 to me tocando em um deles agora mesmo... quer ver? 😏",
+                "Hmm, agora você me deixou com vontade... to toda molhadinha aqui pensando no que poderíamos fazer juntos... quer me ver assim? 😘"
+            ]
+        
         if any(p in user_input for p in ["foto", "fotos", "buceta", "peito", "bunda", "seios"]):
             return {
-                "text": random.choice([
-                    "Ahh querido, minhas fotos são bem ousadas viu? To com um ensaio novo onde mostro TUDO... Quer dar uma olhadinha? 😈",
-                    "Nossa, amor... Minhas fotos tão bem quentes! Acabei de fazer um ensaio mostrando cada detalhe... Quer ver? 😏",
-                    "To com umas fotos aqui que até eu fico com vergonha... Mostrando tudo mesmo, bem explicitinha... Curioso? 🍑"
-                ]),
+                "text": CTAEngine.humanize_text(random.choice([
+                    "Ahh querido, minhas fotos são bem ousadas viu? to com um ensaio novo onde mostro TUDO... quer dar uma olhadinha? 😈",
+                    "Nossa amor... minhas fotos tão bem quentes! acabei de fazer um ensaio mostrando cada detalhe... quer ver? 😏",
+                    "To com umas fotos aqui que até eu fico com vergonha... mostrando tudo mesmo, bem explicitinha... curioso? 🍑"
+                ])),
                 "cta": {
                     "show": True,
                     "label": "Ver Fotos Quentes",
@@ -427,16 +509,19 @@ class CTAEngine:
                 },
                 "preview": {
                     "show": False
+                },
+                "audio": {
+                    "show": False
                 }
             }
         
         elif any(v in user_input for v in ["video", "transar", "masturbar", "vídeo", "se masturbando"]):
             return {
-                "text": random.choice([
-                    "Meus vídeos são bem quentes! Tem uns que até eu fico com vergonha de lembrar 😳 To me tocando em um deles agora mesmo... Quer ver? 💦",
-                    "Nossa, amor... Meus vídeos são explícitos mesmo! Mostro tudo, sem censura... Tô até molhadinha agora pensando nisso... 🔥",
-                    "Acabei de gravar um vídeo bem safado... To toda excitada aqui... Quer ver essa novidade? 😈"
-                ]),
+                "text": CTAEngine.humanize_text(random.choice([
+                    "Meus vídeos são bem quentes! tem uns que até eu fico com vergonha de lembrar 😳 to me tocando em um deles agora mesmo... quer ver? 💦",
+                    "Nossa amor... meus vídeos são explícitos mesmo! mostro tudo, sem censura... tô até molhadinha agora pensando nisso... 🔥",
+                    "Acabei de gravar um vídeo bem safado... to toda excitada aqui... quer ver essa novidade? 😈"
+                ])),
                 "cta": {
                     "show": True,
                     "label": "Ver Vídeos Exclusivos",
@@ -444,16 +529,19 @@ class CTAEngine:
                 },
                 "preview": {
                     "show": False
+                },
+                "audio": {
+                    "show": False
                 }
             }
         
         elif any(p in user_input for p in ["presente", "presentinho", "prévia", "amostra"]):
             return {
-                "text": random.choice([
-                    "Ahh você é tão fofo pedindo presentinho... Deixa eu te mostrar uma coisinha, mas promete que depois vem ver tudo? 😘",
-                    "Gosto de quem pede com educação... Toma uma prévia aqui, mas o melhor mesmo tá no meu conteúdo completo! 😏",
-                    "Só porque você pediu tão bonito... Toma uma amostrinha do que eu tenho aqui! Depois me conta o que achou... 🍑"
-                ]),
+                "text": CTAEngine.humanize_text(random.choice([
+                    "Ahh você é tão fofo pedindo presentinho... deixa eu te mostrar uma coisinha, mas promete que depois vem ver tudo? 😘",
+                    "Gosto de quem pede com educação... toma uma prévia aqui, mas o melhor mesmo tá no meu conteúdo completo! 😏",
+                    "Só porque você pediu tão bonito... toma uma amostrinha do que eu tenho aqui! depois me conta o que achou... 🍑"
+                ])),
                 "cta": {
                     "show": True,
                     "label": "Quero Ver Tudo!",
@@ -462,23 +550,27 @@ class CTAEngine:
                 "preview": {
                     "show": True,
                     "image_url": random.choice(Config.PREVIEW_IMAGES)
+                },
+                "audio": {
+                    "show": True,
+                    "audio_key": "amostra_gratis"
                 }
             }
         
         else:
             return {
-                "text": random.choice([
-                    "Quero te mostrar tudo que eu tenho aqui... São coisas bem quentes que fiz pensando em você! 😈",
-                    "Meu privado tá cheio de surpresas pra vc... Coisas que vão te deixar bem excitado! 🔥",
-                    "Vem ver o que eu fiz pensando em voce... Tenho umes novidades bem safadas! 💦"
-                ]),
+                "text": CTAEngine.humanize_text(random.choice(responses)),
                 "cta": {
                     "show": False
                 },
                 "preview": {
                     "show": False
+                },
+                "audio": {
+                    "show": False
                 }
             }
+
 # ======================
 # SERVIÇOS DE BANCO DE DADOS
 # ======================
@@ -494,6 +586,21 @@ class DatabaseService:
                      timestamp DATETIME,
                      role TEXT,
                      content TEXT)''')
+        
+        # Tabela para cache de respostas
+        c.execute('''CREATE TABLE IF NOT EXISTS response_cache
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     prompt_hash TEXT UNIQUE,
+                     response TEXT,
+                     timestamp DATETIME)''')
+        
+        # Tabela para análise de sentimento
+        c.execute('''CREATE TABLE IF NOT EXISTS sentiment_analysis
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     user_id TEXT,
+                     message TEXT,
+                     sentiment TEXT,
+                     timestamp DATETIME)''')
         conn.commit()
         return conn
 
@@ -507,7 +614,7 @@ class DatabaseService:
             """, (user_id, session_id, datetime.now(), role, content))
             conn.commit()
         except sqlite3.Error as e:
-            st.error(f"Erro ao salvar mensagem: {e}")
+            logger.error(f"Erro ao salvar mensagem: {e}")
 
     @staticmethod
     def load_messages(conn, user_id, session_id):
@@ -518,6 +625,44 @@ class DatabaseService:
             ORDER BY timestamp
         """, (user_id, session_id))
         return [{"role": row[0], "content": row[1]} for row in c.fetchall()]
+    
+    @staticmethod
+    def cache_response(conn, prompt_hash, response):
+        try:
+            c = conn.cursor()
+            c.execute("""
+                INSERT OR REPLACE INTO response_cache (prompt_hash, response, timestamp)
+                VALUES (?, ?, ?)
+            """, (prompt_hash, json.dumps(response), datetime.now()))
+            conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Erro ao salvar no cache: {e}")
+    
+    @staticmethod
+    def get_cached_response(conn, prompt_hash, max_age_hours=24):
+        try:
+            c = conn.cursor()
+            c.execute("""
+                SELECT response FROM response_cache 
+                WHERE prompt_hash = ? AND timestamp > ?
+            """, (prompt_hash, datetime.now() - timedelta(hours=max_age_hours)))
+            result = c.fetchone()
+            return json.loads(result[0]) if result else None
+        except sqlite3.Error as e:
+            logger.error(f"Erro ao buscar no cache: {e}")
+            return None
+    
+    @staticmethod
+    def save_sentiment(conn, user_id, message, sentiment):
+        try:
+            c = conn.cursor()
+            c.execute("""
+                INSERT INTO sentiment_analysis (user_id, message, sentiment, timestamp)
+                VALUES (?, ?, ?, ?)
+            """, (user_id, message, json.dumps(sentiment), datetime.now()))
+            conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Erro ao salvar análise de sentimento: {e}")
 
 # ======================
 # SERVIÇOS DE API
@@ -525,20 +670,27 @@ class DatabaseService:
 class ApiService:
     @staticmethod
     @lru_cache(maxsize=100)
-    def ask_gemini(prompt: str, session_id: str, conn) -> dict:
-        if any(word in prompt.lower() for word in ["vip", "quanto custa", "comprar", "assinar", "pacote"]):
-            return ApiService._call_gemini_api(prompt, session_id, conn)
+    def ask_gemini(prompt: str, session_id: str, conn, user_sentiment: Dict) -> dict:
+        # Verificar cache primeiro
+        prompt_hash = str(hash(prompt + session_id + json.dumps(user_sentiment)))
+        cached_response = DatabaseService.get_cached_response(conn, prompt_hash)
+        if cached_response:
+            logger.info("Resposta recuperada do cache")
+            return cached_response
         
-        return ApiService._call_gemini_api(prompt, session_id, conn)
-
-    @staticmethod
-    def _call_gemini_api(prompt: str, session_id: str, conn) -> dict:
-        delay_time = random.uniform(3, 8)
-        time.sleep(delay_time)
+        # Aplicar delay humano (1-5 minutos)
+        human_delay = random.randint(Config.MIN_RESPONSE_DELAY, Config.MAX_RESPONSE_DELAY)
+        time.sleep(human_delay)
         
         status_container = st.empty()
         UiService.show_status_effect(status_container, "viewed")
-        UiService.show_status_effect(status_container, "typing")
+        
+        # Mostrar "digitando" com tempo variável
+        typing_time = random.uniform(
+            Config.TYPING_SPEED_VARIATION * 3, 
+            Config.TYPING_SPEED_VARIATION * 8
+        )
+        UiService.show_status_effect(status_container, "typing", typing_time)
         
         conversation_history = ChatService.format_conversation_history(st.session_state.messages)
         
@@ -547,7 +699,7 @@ class ApiService:
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": f"{Persona.MylleAlves}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }},\n  \"preview\": {{\n    \"show\": true/false,\n    \"image_url\": \"url_da_imagem\"\n  }}\n}}"}]
+                    "parts": [{"text": f"{Persona.MylleAlves}\n\nHistórico da Conversa:\n{conversation_history}\n\nAnálise de Sentimento do Cliente:\n{json.dumps(user_sentiment)}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }},\n  \"preview\": {{\n    \"show\": true/false,\n    \"image_url\": \"url_da_imagem\"\n  }},\n  \"audio\": {{\n    \"show\": true/false,\n    \"audio_key\": \"chave_do_audio\"\n  }}\n}}"}]
                 }
             ],
             "generationConfig": {
@@ -568,6 +720,10 @@ class ApiService:
                 else:
                     resposta = json.loads(gemini_response)
                 
+                # Aplicar humanização ao texto
+                if "text" in resposta:
+                    resposta["text"] = CTAEngine.humanize_text(resposta["text"])
+                
                 # Verificar se deve mostrar CTA
                 if resposta.get("cta", {}).get("show"):
                     if not CTAEngine.should_show_cta(st.session_state.messages):
@@ -584,42 +740,170 @@ class ApiService:
                             st.session_state.preview_count = 0
                         st.session_state.preview_count += 1
                 
+                # Verificar se deve enviar áudio
+                audio_key = CTAEngine.should_send_audio(st.session_state.messages)
+                if audio_key and not resposta.get("audio", {}).get("show"):
+                    resposta["audio"] = {
+                        "show": True,
+                        "audio_key": audio_key
+                    }
+                
+                # Salvar no cache
+                DatabaseService.cache_response(conn, prompt_hash, resposta)
+                
                 return resposta
             
             except json.JSONDecodeError:
+                logger.error("Erro ao decodificar resposta do Gemini")
                 # Fallback para resposta gerada localmente
-                return CTAEngine.generate_response(prompt)
+                return CTAEngine.generate_response(prompt, user_sentiment)
                 
         except Exception as e:
-            st.error(f"Erro na API: {str(e)}")
+            logger.error(f"Erro na API: {str(e)}")
             # Fallback para resposta gerada localmente
-            return CTAEngine.generate_response(prompt)
+            return CTAEngine.generate_response(prompt, user_sentiment)
+
+# ======================
+# ANÁLISE DE SENTIMENTO
+# ======================
+class SentimentAnalyzer:
+    @staticmethod
+    def analyze_text(text: str) -> Dict[str, Any]:
+        """Analisa o sentimento do texto usando abordagem baseada em palavras-chave"""
+        text_lower = text.lower()
+        
+        # Palavras-chave positivas
+        positive_words = [
+            'gostei', 'adoro', 'amo', 'incrível', 'maravilhoso', 'perfeito', 
+            'excelente', 'gostoso', 'gostosa', 'delicia', 'lindo', 'linda',
+            'bonito', 'bonita', 'sensual', 'quente', 'tesão', 'excitante'
+        ]
+        
+        # Palavras-chave negativas
+        negative_words = [
+            'odeio', 'ruim', 'péssimo', 'horrível', 'nojento', 'nojo', 
+            'triste', 'chateado', 'chateada', 'caro', 'caro', 'caro',
+            'mentira', 'fake', 'falso', 'falsa', 'fraude', 'engano'
+        ]
+        
+        # Palavras-chave de interesse
+        interest_words = [
+            'foto', 'fotos', 'video', 'vídeo', 'conteúdo', 'conteudo',
+            'pack', 'pacote', 'comprar', 'compra', 'preço', 'valor',
+            'mostrar', 'ver', 'assistir', 'nua', 'nude', 'transar',
+            'sexo', 'safado', 'safada', 'putaria'
+        ]
+        
+        # Contar ocorrências
+        positive_count = sum(1 for word in positive_words if word in text_lower)
+        negative_count = sum(1 for word in negative_words if word in text_lower)
+        interest_count = sum(1 for word in interest_words if word in text_lower)
+        
+        # Determinar sentimento predominante
+        if positive_count > negative_count:
+            sentiment = "positive"
+        elif negative_count > positive_count:
+            sentiment = "negative"
+        else:
+            sentiment = "neutral"
+        
+        # Calcular scores
+        total_words = max(positive_count + negative_count, 1)  # Evitar divisão por zero
+        positivity_score = positive_count / total_words
+        negativity_score = negative_count / total_words
+        interest_score = min(interest_count / 5, 1.0)  # Normalizar para 0-1
+        
+        return {
+            "sentiment": sentiment,
+            "positivity_score": positivity_score,
+            "negativity_score": negativity_score,
+            "interest_score": interest_score,
+            "positive_words": positive_count,
+            "negative_words": negative_count,
+            "interest_words": interest_count
+        }
+    
+    @staticmethod
+    def update_user_sentiment(user_id: str, message: str, conn):
+        """Atualiza o sentimento do usuário com base na última mensagem"""
+        analysis = SentimentAnalyzer.analyze_text(message)
+        
+        # Salvar análise no banco
+        DatabaseService.save_sentiment(conn, user_id, message, analysis)
+        
+        # Atualizar preferências do usuário
+        if 'user_preferences' not in st.session_state:
+            st.session_state.user_preferences = {}
+        
+        if 'user_sentiment' not in st.session_state:
+            st.session_state.user_sentiment = {}
+        
+        # Atualizar sentimento atual
+        st.session_state.user_sentiment = analysis
+        
+        # Atualizar interesses baseados nas palavras-chave
+        interest_words = [
+            'foto', 'fotos', 'video', 'vídeo', 'conteúdo', 'conteudo',
+            'pack', 'pacote', 'nua', 'nude', 'transar', 'sexo',
+            'safado', 'safada', 'putaria', 'masturbação', 'masturbacao'
+        ]
+        
+        message_lower = message.lower()
+        for interest in interest_words:
+            if interest in message_lower:
+                if 'interests' not in st.session_state.user_preferences:
+                    st.session_state.user_preferences['interests'] = []
+                
+                if interest not in st.session_state.user_preferences['interests']:
+                    st.session_state.user_preferences['interests'].append(interest)
+        
+        # Limitar a 5 interesses principais
+        if 'interests' in st.session_state.user_preferences:
+            st.session_state.user_preferences['interests'] = st.session_state.user_preferences['interests'][-5:]
+        
+        save_persistent_data()
 
 # ======================
 # SERVIÇOS DE INTERFACE
 # ======================
 class UiService:
     @staticmethod
+    def get_audio_player(audio_key: str) -> str:
+        """Retorna HTML para player de áudio"""
+        return f"""
+        <div style="
+            background: linear-gradient(45deg, #ff66b3, #ff1493);
+            border-radius: 15px;
+            padding: 12px;
+            margin: 5px 0;
+        ">
+            <audio controls style="width:100%; height:40px;">
+                <source src="{Config.AUDIO_FILES[audio_key]}" type="audio/mp3">
+            </audio>
+        </div>
+        """
+
+    @staticmethod
     def show_call_effect():
-        LIGANDO_DELAY = 5
-        ATENDIDA_DELAY = 3
+        LIGANDO_DELAY = 3
+        ATENDIDA_DELAY = 2
 
         call_container = st.empty()
         call_container.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #1a001a, #330033);
+            background: linear-gradient(135deg, #1e0033, #3c0066);
             border-radius: 20px;
             padding: 30px;
             max-width: 300px;
             margin: 0 auto;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            border: 2px solid #ff2a6d;
+            border: 2px solid #ff66b3;
             text-align: center;
             color: white;
             animation: pulse-ring 2s infinite;
         ">
             <div style="font-size: 3rem;">📱</div>
-            <h3 style="color: #ff2a6d; margin-bottom: 5px;">Ligando para Mylle Alves...</h3>
+            <h3 style="color: #ff66b3; margin-bottom: 5px;">Ligando para Mylle Alves...</h3>
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 15px;">
                 <div style="width: 10px; height: 10px; background: #4CAF50; border-radius: 50%;"></div>
                 <span style="font-size: 0.9rem;">Online agora</span>
@@ -637,7 +921,7 @@ class UiService:
         time.sleep(LIGANDO_DELAY)
         call_container.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #1a001a, #330033);
+            background: linear-gradient(135deg, #1e0033, #3c0066);
             border-radius: 20px;
             padding: 30px;
             max-width: 300px;
@@ -657,7 +941,7 @@ class UiService:
         call_container.empty()
 
     @staticmethod
-    def show_status_effect(container, status_type):
+    def show_status_effect(container, status_type, duration=2.5):
         status_messages = {
             "viewed": "Visualizado",
             "typing": "Digitando"
@@ -666,13 +950,42 @@ class UiService:
         message = status_messages[status_type]
         dots = ""
         start_time = time.time()
-        duration = 2.5 if status_type == "viewed" else 4.0
         
         while time.time() - start_time < duration:
             elapsed = time.time() - start_time
             
             if status_type == "typing":
                 dots = "." * (int(elapsed * 2) % 4)
+            
+            container.markdown(f"""
+            <div style="
+                color: #888;
+                font-size: 0.8em;
+                padding: 2px 8px;
+                border-radius: 10px;
+                background: rgba(0,0,0,0.05);
+                display: inline-block;
+                margin-left: 10px;
+                vertical-align: middle;
+                font-style: italic;
+            ">
+                {message}{dots}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            time.sleep(0.3)
+        
+        container.empty()
+
+    @staticmethod
+    def show_audio_recording_effect(container):
+        message = "Gravando um áudio"
+        dots = ""
+        start_time = time.time()
+        
+        while time.time() - start_time < 5:  # Duração fixa de 5 segundos para áudio
+            elapsed = time.time() - start_time
+            dots = "." * (int(elapsed) % 4)
             
             container.markdown(f"""
             <div style="
@@ -702,10 +1015,10 @@ class UiService:
                 max-width: 600px;
                 margin: 2rem auto;
                 padding: 2rem;
-                background: linear-gradient(145deg, #1a001a, #330033);
+                background: linear-gradient(145deg, #1e0033, #3c0066);
                 border-radius: 15px;
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(255, 42, 109, 0.2);
+                border: 1px solid rgba(255, 102, 179, 0.2);
                 color: white;
             }
             .age-header {
@@ -716,13 +1029,13 @@ class UiService:
             }
             .age-icon {
                 font-size: 2.5rem;
-                color: #ff2a6d;
+                color: #ff66b3;
             }
             .age-title {
                 font-size: 1.8rem;
                 font-weight: 700;
                 margin: 0;
-                color: #ff2a6d;
+                color: #ff66b3;
             }
         </style>
         """, unsafe_allow_html=True)
@@ -757,13 +1070,18 @@ class UiService:
             st.markdown("""
             <style>
                 [data-testid="stSidebar"] {
-                    background: linear-gradient(180deg, #1a001a 0%, #330033 100%) !important;
-                    border-right: 1px solid #ff2a6d !important;
+                    background: linear-gradient(180deg, #1e0033 0%, #3c0066 100%) !important;
+                    border-right: 1px solid #ff66b3 !important;
                 }
                 .sidebar-logo-container {
                     margin: -25px -25px 0px -25px;
                     padding: 0;
                     text-align: left;
+                }
+                .sidebar-logo {
+                    max-width: 100%;
+                    height: auto;
+                    margin-bottom: -10px;
                 }
                 .sidebar-header {
                     text-align: center; 
@@ -771,10 +1089,18 @@ class UiService:
                 }
                 .sidebar-header img {
                     border-radius: 50%; 
-                    border: 2px solid #ff2a6d;
+                    border: 2px solid #ff66b3;
                     width: 80px;
                     height: 80px;
                     object-fit: cover;
+                }
+                .vip-badge {
+                    background: linear-gradient(45deg, #ff1493, #9400d3);
+                    padding: 15px;
+                    border-radius: 8px;
+                    color: white;
+                    text-align: center;
+                    margin: 10px 0;
                 }
                 .menu-item {
                     transition: all 0.3s;
@@ -782,7 +1108,19 @@ class UiService:
                     border-radius: 5px;
                 }
                 .menu-item:hover {
-                    background: rgba(255, 42, 109, 0.2);
+                    background: rgba(255, 102, 179, 0.2);
+                }
+                .sidebar-logo {
+                    width: 280px;
+                    height: auto;
+                    object-fit: contain;
+                    margin-left: -15px;
+                    margin-top: -15px;
+                }
+                @media (min-width: 768px) {
+                    .sidebar-logo {
+                        width: 320px;
+                    }
                 }
                 [data-testid="stSidebarNav"] {
                     margin-top: -50px;
@@ -803,7 +1141,7 @@ class UiService:
             st.markdown("""
             <div class="sidebar-header">
                 <img src="{profile_img}" alt="Mylle Alves">
-                <h3 style="color: #ff2a6d; margin-top: 10px;">Mylle Alves Premium</h3>
+                <h3 style="color: #ff66b3; margin-top: 10px;">Mylle Alves Premium</h3>
             </div>
             """.format(profile_img=Config.IMG_PROFILE), unsafe_allow_html=True)
             
@@ -830,7 +1168,7 @@ class UiService:
             
             st.markdown("""
             <div style="
-                background: rgba(255, 42, 109, 0.1);
+                background: rgba(255, 20, 147, 0.1);
                 padding: 10px;
                 border-radius: 8px;
                 text-align: center;
@@ -866,7 +1204,7 @@ class UiService:
     def show_gallery_page(conn):
         st.markdown("""
         <div style="
-            background: rgba(255, 42, 109, 0.1);
+            background: rgba(255, 20, 147, 0.1);
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 20px;
@@ -883,7 +1221,7 @@ class UiService:
                     st.image(Config.IMG_GALLERY[idx], use_column_width=True)
                     st.markdown(f"""
                     <div style="text-align: center; margin-top: 10px;">
-                        <span style="color: #ff2a6d; font-weight: bold;">Foto Exclusiva #{idx + 1}</span>
+                        <span style="color: #ff66b3; font-weight: bold;">Foto Exclusiva #{idx + 1}</span>
                     </div>
                     """, unsafe_allow_html=True)
         
@@ -895,7 +1233,7 @@ class UiService:
         with col1:
             st.markdown("""
             <div style="
-                background: linear-gradient(45deg, #ff2a6d, #d1005d);
+                background: linear-gradient(45deg, #ff1493, #9400d3);
                 padding: 20px;
                 border-radius: 10px;
                 color: white;
@@ -917,7 +1255,7 @@ class UiService:
         with col2:
             st.markdown("""
             <div style="
-                background: linear-gradient(45deg, #ff2a6d, #d1005d);
+                background: linear-gradient(45deg, #ff1493, #9400d3);
                 padding: 20px;
                 border-radius: 10px;
                 color: white;
@@ -940,7 +1278,7 @@ class UiService:
     def show_offers_page(conn):
         st.markdown("""
         <div style="
-            background: linear-gradient(45deg, #ff2a6d, #d1005d);
+            background: linear-gradient(45deg, #ff1493, #9400d3);
             padding: 20px;
             border-radius: 10px;
             color: white;
@@ -957,15 +1295,15 @@ class UiService:
         with col1:
             st.markdown("""
             <div style="
-                background: rgba(255, 42, 109, 0.1);
+                background: rgba(255, 20, 147, 0.1);
                 padding: 20px;
                 border-radius: 10px;
-                border: 2px solid #ff2a6d;
+                border: 2px solid #ff1493;
                 text-align: center;
                 height: 400px;
             ">
-                <h3 style="color: #ff2a6d;">🔥 Taradinha</h3>
-                <div style="font-size: 2em; color: #ff2a6d; font-weight: bold;">R$ 9,90</div>
+                <h3 style="color: #ff1493;">🔥 Taradinha</h3>
+                <div style="font-size: 2em; color: #ff1493; font-weight: bold;">R$ 9,90</div>
                 <div style="margin: 20px 0;">
                     <p>✓ 20 fotos sensuais</p>
                     <p>✓ 1 vídeo curto</p>
@@ -981,7 +1319,7 @@ class UiService:
         with col2:
             st.markdown("""
             <div style="
-                background: linear-gradient(45deg, #ff2a6d, #d1005d);
+                background: linear-gradient(45deg, #ff1493, #9400d3);
                 padding: 20px;
                 border-radius: 10px;
                 color: white;
@@ -1006,15 +1344,15 @@ class UiService:
         with col3:
             st.markdown("""
             <div style="
-                background: rgba(209, 0, 93, 0.1);
+                background: rgba(148, 0, 211, 0.1);
                 padding: 20px;
                 border-radius: 10px;
-                border: 2px solid #d1005d;
+                border: 2px solid #9400d3;
                 text-align: center;
                 height: 400px;
             ">
-                <h3 style="color: #d1005d;">😈 Safadinha</h3>
-                <div style="font-size: 2em; color: #d1005d; font-weight: bold;">R$ 49,90</div>
+                <h3 style="color: #9400d3;">😈 Safadinha</h3>
+                <div style="font-size: 2em; color: #9400d3; font-weight: bold;">R$ 49,90</div>
                 <div style="margin: 20px 0;">
                     <p>✓ 100+ fotos explícitas</p>
                     <p>✓ 10+ vídeos completos</p>
@@ -1032,7 +1370,7 @@ class UiService:
         
         st.markdown("""
         <div style="
-            background: rgba(255, 42, 109, 0.05);
+            background: rgba(255, 20, 147, 0.05);
             padding: 20px;
             border-radius: 10px;
             text-align: center;
@@ -1042,6 +1380,82 @@ class UiService:
             <p>Se não gostar em 7 dias, devolvemos seu dinheiro!</p>
         </div>
         """, unsafe_allow_html=True)
+
+    @staticmethod
+    def show_home_page(conn):
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.image(Config.IMG_PROFILE, use_column_width=True)
+            st.markdown("""
+            <div style="text-align: center; margin-top: 10px;">
+                <h3 style="color: #ff66b3;">Mylle Alves</h3>
+                <p style="color: #888;">Online agora 💚</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            st.markdown("""
+            <div style="
+                background: rgba(255, 102, 179, 0.1);
+                padding: 15px;
+                border-radius: 10px;
+            ">
+                <h4>📊 Meu Perfil</h4>
+                <p>👙 85-60-90</p>
+                <p>📏 1.68m</p>
+                <p>🎂 22 anos</p>
+                <p>📍 São Paulo</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div style="
+                background: linear-gradient(45deg, #ff66b3, #ff1493);
+                padding: 20px;
+                border-radius: 10px;
+                color: white;
+                text-align: center;
+                margin-bottom: 20px;
+            ">
+                <h2>💋 Bem-vindo ao Meu Mundo</h2>
+                <p>Conversas quentes e conteúdo exclusivo esperando por você!</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div style="
+                background: rgba(255, 102, 179, 0.1);
+                padding: 20px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+            ">
+                <h4>🎯 O que você encontra aqui:</h4>
+                <p>• 💬 Chat privado comigo</p>
+                <p>• 📸 Fotos exclusivas e sensuais</p>
+                <p>• 🎥 Vídeos quentes e explícitos</p>
+                <p>• 🎁 Conteúdo personalizado</p>
+                <p>• 🔞 Experiências únicas</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Preview images
+            st.markdown("### 🌶️ Prévia do Conteúdo")
+            preview_cols = st.columns(2)
+            for idx, col in enumerate(preview_cols):
+                if idx < len(Config.IMG_HOME_PREVIEWS):
+                    with col:
+                        st.image(Config.IMG_HOME_PREVIEWS[idx], use_column_width=True)
+            
+            st.markdown("---")
+            
+            if st.button("💬 Iniciar Conversa", use_container_width=True, type="primary"):
+                st.session_state.current_page = "messages"
+                save_persistent_data()
+                st.rerun()
+
 # ======================
 # SERVIÇOS DE CHAT
 # ======================
@@ -1070,13 +1484,16 @@ class ChatService:
         
         if st.session_state.request_count >= Config.MAX_REQUESTS_PER_SESSION:
             return {
-                "text": "Querido, já conversamos bastante hoje... Que tal dar uma olhadinha no meu conteúdo exclusivo? Tenho muitas coisas quentes para te mostrar! 😈",
+                "text": "Querido, já conversamos bastante hoje... que tal dar uma olhadinha no meu conteúdo exclusivo? tenho muitas coisas quentes para te mostrar! 😈",
                 "cta": {
                     "show": True,
                     "label": "Ver Conteúdo Exclusivo",
                     "target": "offers"
                 },
                 "preview": {
+                    "show": False
+                },
+                "audio": {
                     "show": False
                 }
             }
@@ -1085,6 +1502,13 @@ class ChatService:
         
         if 'session_id' not in st.session_state:
             st.session_state.session_id = str(uuid.uuid4())
+        
+        # Atualizar análise de sentimento
+        SentimentAnalyzer.update_user_sentiment(
+            get_user_id(), 
+            message, 
+            conn
+        )
         
         # Salvar mensagem do usuário
         DatabaseService.save_message(
@@ -1099,7 +1523,8 @@ class ChatService:
         resposta = ApiService.ask_gemini(
             message, 
             st.session_state.session_id,
-            conn
+            conn,
+            st.session_state.user_sentiment
         )
         
         # Salvar resposta da assistente
@@ -1123,7 +1548,7 @@ class ChatService:
                 margin: 5px 0;
             ">
                 <div style="
-                    background: linear-gradient(45deg, #ff2a6d, #d1005d);
+                    background: linear-gradient(45deg, #ff66b3, #ff1493);
                     color: white;
                     padding: 12px 16px;
                     border-radius: 18px 18px 0 18px;
@@ -1144,11 +1569,11 @@ class ChatService:
             with col2:
                 st.markdown(f"""
                 <div style="
-                    background: rgba(255, 42, 109, 0.1);
+                    background: rgba(255, 102, 179, 0.1);
                     padding: 12px 16px;
                     border-radius: 18px 18px 18px 0;
                     margin: 5px 0;
-                    border: 1px solid rgba(255, 42, 109, 0.2);
+                    border: 1px solid rgba(255, 102, 179, 0.2);
                 ">
                     {content}
                 </div>
@@ -1159,11 +1584,19 @@ class ChatService:
         st.markdown("""
         <style>
             .chat-header {
-                background: linear-gradient(45deg, #ff2a6d, #d1005d);
+                background: linear-gradient(45deg, #ff66b3, #ff1493);
                 padding: 15px;
                 border-radius: 10px;
                 color: white;
                 text-align: center;
+                margin-bottom: 20px;
+            }
+            .chat-container {
+                max-height: 500px;
+                overflow-y: auto;
+                padding: 10px;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 10px;
                 margin-bottom: 20px;
             }
         </style>
@@ -1198,17 +1631,18 @@ class ChatService:
                                 use_column_width=True,
                                 caption="📸 Presentinho para você! 😘"
                             )
+                        
+                        # Mostrar áudio se existir
+                        if content_data.get("audio", {}).get("show"):
+                            audio_key = content_data["audio"]["audio_key"]
+                            st.markdown(UiService.get_audio_player(audio_key), unsafe_allow_html=True)
                     
                     except json.JSONDecodeError:
                         ChatService.display_chat_message("assistant", msg["content"])
             
             st.markdown('</div>', unsafe_allow_html=True)
         
-        # Área de input fixa no rodapé
-        st.markdown("""
-        <div class="fixed-input">
-        """, unsafe_allow_html=True)
-        
+        # Área de input
         col1, col2 = st.columns([5, 1])
         
         with col1:
@@ -1222,7 +1656,49 @@ class ChatService:
         with col2:
             send_button = st.button("Enviar", use_container_width=True)
         
-        st.markdown("</div>", unsafe_allow_html=True)
+        # Botão de áudio
+        audio_col1, audio_col2 = st.columns([2, 1])
+        with audio_col1:
+            if st.button("🎤 Enviar Áudio", use_container_width=True):
+                status_container = st.empty()
+                UiService.show_audio_recording_effect(status_container)
+                
+                # Adicionar mensagem de áudio
+                st.session_state.messages.append({"role": "user", "content": "[ÁUDIO]"})
+                DatabaseService.save_message(
+                    conn,
+                    get_user_id(),
+                    st.session_state.session_id,
+                    "user",
+                    "[ÁUDIO]"
+                )
+                
+                # Resposta automática para áudio
+                resposta = {
+                    "text": "Que voz gostosa! adoro quando me mandam áudio... me deixou com vontade de te ouvir mais! 😏 quer que eu também te mande um áudio especial?",
+                    "cta": {
+                        "show": False
+                    },
+                    "preview": {
+                        "show": False
+                    },
+                    "audio": {
+                        "show": True,
+                        "audio_key": "oi_amor"
+                    }
+                }
+                
+                st.session_state.messages.append({"role": "assistant", "content": json.dumps(resposta)})
+                DatabaseService.save_message(
+                    conn,
+                    get_user_id(),
+                    st.session_state.session_id,
+                    "assistant",
+                    json.dumps(resposta)
+                )
+                
+                save_persistent_data()
+                st.rerun()
         
         # Processar mensagem de texto
         if send_button and user_input:
@@ -1233,85 +1709,6 @@ class ChatService:
             
             save_persistent_data()
             st.rerun()
-
-# ======================
-# SERVIÇOS DE INTERFACE (CONTINUAÇÃO)
-# ======================
-class UiService:
-    @staticmethod
-    def show_home_page(conn):
-        col1, col2 = st.columns([1, 2])
-        
-        with col1:
-            st.image(Config.IMG_PROFILE, use_column_width=True)
-            st.markdown("""
-            <div style="text-align: center; margin-top: 10px;">
-                <h3 style="color: #ff2a6d;">Mylle Alves</h3>
-                <p style="color: #888;">Online agora 💚</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("---")
-            
-            st.markdown("""
-            <div style="
-                background: rgba(255, 42, 109, 0.1);
-                padding: 15px;
-                border-radius: 10px;
-            ">
-                <h4>📊 Meu Perfil</h4>
-                <p>👙 85-60-90</p>
-                <p>📏 1.68m</p>
-                <p>🎂 22 anos</p>
-                <p>📍 São Paulo</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("""
-            <div style="
-                background: linear-gradient(45deg, #ff2a6d, #d1005d);
-                padding: 20px;
-                border-radius: 10px;
-                color: white;
-                text-align: center;
-                margin-bottom: 20px;
-            ">
-                <h2>💋 Bem-vindo ao Meu Mundo</h2>
-                <p>Conversas quentes e conteúdo exclusivo esperando por você!</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("""
-            <div style="
-                background: rgba(255, 42, 109, 0.1);
-                padding: 20px;
-                border-radius: 10px;
-                margin-bottom: 20px;
-            ">
-                <h4>🎯 O que você encontra aqui:</h4>
-                <p>• 💬 Chat privado comigo</p>
-                <p>• 📸 Fotos exclusivas e sensuais</p>
-                <p>• 🎥 Vídeos quentes e explícitos</p>
-                <p>• 🎁 Conteúdo personalizado</p>
-                <p>• 🔞 Experiências únicas</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Preview images
-            st.markdown("### 🌶️ Prévia do Conteúdo")
-            preview_cols = st.columns(2)
-            for idx, col in enumerate(preview_cols):
-                if idx < len(Config.IMG_HOME_PREVIEWS):
-                    with col:
-                        st.image(Config.IMG_HOME_PREVIEWS[idx], use_column_width=True)
-            
-            st.markdown("---")
-            
-            if st.button("💬 Iniciar Conversa", use_container_width=True, type="primary"):
-                st.session_state.current_page = "messages"
-                save_persistent_data()
-                st.rerun()
 
 # ======================
 # INICIALIZAÇÃO E CONTROLE PRINCIPAL
@@ -1334,6 +1731,18 @@ def initialize_session():
     
     if 'audio_sent' not in st.session_state:
         st.session_state.audio_sent = False
+    
+    if 'user_preferences' not in st.session_state:
+        st.session_state.user_preferences = {}
+    
+    if 'user_sentiment' not in st.session_state:
+        st.session_state.user_sentiment = {}
+    
+    if 'last_message_time' not in st.session_state:
+        st.session_state.last_message_time = time.time()
+    
+    if 'conversation_phase' not in st.session_state:
+        st.session_state.conversation_phase = "initial"  # initial, building_rapport, closing
 
 def main():
     # Carregar dados persistentes
@@ -1358,282 +1767,25 @@ def main():
         UiService.show_call_effect()
         st.session_state.connection_complete = True
         save_persistent_data()
-        st.rerun()
-    
-    # Gerenciar páginas
-    if st.session_state.current_page == "home":
-        UiService.show_home_page(conn)
-    
-    elif st.session_state.current_page == "messages":
-        ChatService.show_chat_interface(conn)
-    
-    elif st.session_state.current_page == "gallery":
-        UiService.show_gallery_page(conn)
-    
-    elif st.session_state.current_page == "offers":
-        UiService.show_offers_page(conn)
-    
-    # Salvar estado persistentemente
-    save_persistent_data()
-
-if __name__ == "__main__":
-    main()
-# ======================
-# INICIALIZAÇÃO E CONTROLE PRINCIPAL (CONTINUAÇÃO)
-# ======================
-
-# Esta é a continuação do código principal
-# A função main() já foi definida na parte anterior
-
-# Garantir que o código seja executado corretamente
-if __name__ == "__main__":
-    main()
-
-# ======================
-# FUNÇÕES ADICIONAIS E MELHORIAS
-# ======================
-
-# Adicionando funcionalidade de simulação de gravação de áudio
-def simulate_audio_recording():
-    """Simula o envio de um áudio pela modelo"""
-    if 'audio_sent' not in st.session_state:
-        st.session_state.audio_sent = False
-    
-    if not st.session_state.audio_sent and st.session_state.current_page == "messages":
-        # Aguardar um pouco antes de enviar o áudio
-        time.sleep(2)
         
-        # Simular gravação de áudio
-        status_container = st.empty()
-        status_container.markdown("""
-        <div style="
-            color: #888;
-            font-size: 0.8em;
-            padding: 2px 8px;
-            border-radius: 10px;
-            background: rgba(0,0,0,0.05);
-            display: inline-block;
-            margin-left: 10px;
-            vertical-align: middle;
-            font-style: italic;
-        ">
-            Mylle está gravando um áudio...
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Simular tempo de gravação
-        time.sleep(3)
-        status_container.empty()
-        
-        # Adicionar mensagem de áudio da modelo
-        audio_message = {
-            "text": "Oi amor, tudo bem? Acabei de gravar um áudio especial para você! 😘 Quer ouvir?",
-            "cta": {
-                "show": True,
-                "label": "Ouvir Áudio",
-                "target": "offers"
-            },
-            "preview": {
-                "show": False
+        # Mensagem inicial após 5 segundos (substituindo o áudio inicial)
+        time.sleep(5)
+        if st.session_state.current_page == "messages" and not st.session_state.messages:
+            resposta = {
+                "text": "Oi tudo bem? 😘 acabou de chegar no lugar certo pra se divertir!",
+                "cta": {"show": False},
+                "preview": {"show": False},
+                "audio": {"show": False}
             }
-        }
-        
-        st.session_state.messages.append({"role": "assistant", "content": json.dumps(audio_message)})
-        st.session_state.audio_sent = True
-        save_persistent_data()
-
-# ======================
-# OTIMIZAÇÕES DE PERFORMANCE
-# ======================
-
-# Cache para melhor performance
-@st.cache_resource
-def get_database_connection():
-    return DatabaseService.init_db()
-
-# ======================
-# TRATAMENTO DE ERROS
-# ======================
-
-def handle_api_errors(func):
-    """Decorator para tratamento de erros da API"""
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except requests.exceptions.RequestException as e:
-            st.error("Erro de conexão. Por favor, tente novamente.")
-            return CTAEngine.generate_response(args[0] if args else "")
-        except Exception as e:
-            st.error("Ocorreu um erro inesperado.")
-            return CTAEngine.generate_response(args[0] if args else "")
-    return wrapper
-
-# Aplicar decorator de tratamento de erro
-ApiService.ask_gemini = handle_api_errors(ApiService.ask_gemini)
-
-# ======================
-# MELHORIAS DE USABILIDADE
-# ======================
-
-def scroll_to_bottom():
-    """Função para rolar automaticamente para o final do chat"""
-    js = """
-    <script>
-        function scrollToBottom() {
-            var chatContainer = document.querySelector('.chat-container');
-            if (chatContainer) {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-        }
-        setTimeout(scrollToBottom, 100);
-    </script>
-    """
-    st.components.v1.html(js, height=0)
-
-# ======================
-# VALIDAÇÕES ADICIONAIS
-# ======================
-
-def validate_user_input(text):
-    """Valida o input do usuário para conteúdo inadequado"""
-    if not text or text.strip() == "":
-        return False
-    
-    # Lista de palavras proibidas (exemplo básico)
-    forbidden_words = ["spam", "propaganda", "http://", "https://", "www."]
-    
-    for word in forbidden_words:
-        if word in text.lower():
-            return False
-    
-    return True
-
-# ======================
-# ATUALIZAÇÃO DO CHAT SERVICE
-# ======================
-
-# Atualizar o método show_chat_interface para incluir rolagem automática
-def updated_show_chat_interface(conn):
-    st.markdown("""
-    <style>
-        .chat-header {
-            background: linear-gradient(45deg, #ff2a6d, #d1005d);
-            padding: 15px;
-            border-radius: 10px;
-            color: white;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div class="chat-header">
-        <h3>💬 Chat com Mylle Alves</h3>
-        <p>Online agora - Respondendo rápido! 💚</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Container do chat
-    chat_container = st.container()
-    
-    with chat_container:
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-        
-        # Mostrar histórico de mensagens
-        for msg in st.session_state.messages:
-            if msg["role"] == "user":
-                ChatService.display_chat_message("user", msg["content"])
-            else:
-                try:
-                    content_data = json.loads(msg["content"])
-                    ChatService.display_chat_message("assistant", content_data["text"])
-                    
-                    # Mostrar prévia se existir
-                    if content_data.get("preview", {}).get("show"):
-                        st.image(
-                            content_data["preview"]["image_url"],
-                            use_column_width=True,
-                            caption="📸 Presentinho para você! 😘"
-                        )
-                
-                except json.JSONDecodeError:
-                    ChatService.display_chat_message("assistant", msg["content"])
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Rolagem automática para o final
-    scroll_to_bottom()
-    
-    # Área de input fixa no rodapé
-    st.markdown("""
-    <div class="fixed-input">
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([5, 1])
-    
-    with col1:
-        user_input = st.text_input(
-            "Digite sua mensagem...",
-            key="user_input",
-            placeholder="Oi linda, como você está?",
-            label_visibility="collapsed"
-        )
-    
-    with col2:
-        send_button = st.button("Enviar", use_container_width=True)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Processar mensagem de texto
-    if send_button and user_input:
-        if validate_user_input(user_input):
-            resposta = ChatService.send_message(user_input, conn)
-            
-            # Adicionar resposta ao histórico
             st.session_state.messages.append({"role": "assistant", "content": json.dumps(resposta)})
-            
-            save_persistent_data()
+            DatabaseService.save_message(
+                conn, 
+                get_user_id(), 
+                st.session_state.session_id, 
+                "assistant", 
+                json.dumps(resposta)
+            )
             st.rerun()
-        else:
-            st.error("Por favor, digite uma mensagem válida.")
-
-# Substituir a função original pela atualizada
-ChatService.show_chat_interface = updated_show_chat_interface
-
-# ======================
-# INICIALIZAÇÃO AUTOMÁTICA DE ÁUDIO
-# ======================
-
-# Adicionar simulação de áudio após a inicialização
-def enhanced_main():
-    # Carregar dados persistentes
-    load_persistent_data()
-    
-    # Inicializar sessão
-    initialize_session()
-    
-    # Inicializar banco de dados
-    conn = DatabaseService.init_db()
-    
-    # Verificação de idade
-    if not st.session_state.get('age_verified', False):
-        UiService.age_verification()
-        return
-    
-    # Configurar sidebar
-    UiService.setup_sidebar()
-    
-    # Efeito de chamada inicial
-    if not st.session_state.connection_complete:
-        UiService.show_call_effect()
-        st.session_state.connection_complete = True
-        save_persistent_data()
-        st.rerun()
-    
-    # Simular áudio se estiver na página de mensagens
-    if st.session_state.current_page == "messages":
-        simulate_audio_recording()
     
     # Gerenciar páginas
     if st.session_state.current_page == "home":
@@ -1651,6 +1803,5 @@ def enhanced_main():
     # Salvar estado persistentemente
     save_persistent_data()
 
-# Substituir a função main original pela enhanced
 if __name__ == "__main__":
-    enhanced_main()
+    main()
