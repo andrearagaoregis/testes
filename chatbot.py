@@ -82,8 +82,6 @@ class Config:
     CHECKOUT_SAFADINHA = "https://app.pushinpay.com.br/#/service/pay/9FACD395-EE65-458E-9B7E-FED750CC9CA9"
     MAX_REQUESTS_PER_SESSION = 30
     REQUEST_TIMEOUT = 30
-    AUDIO_FILE = "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Oi%20meu%20amor%20tudo%20bem.mp3"
-    AUDIO_DURATION = 7
     IMG_PROFILE = "https://i.ibb.co/vxnTYm0Q/BY-Admiregirls-su-Admiregirls-su-156.jpg"
     IMG_GALLERY = [
         "https://i.ibb.co/C3mDFyJV/BY-Admiregirls-su-Admiregirls-su-036.jpg",
@@ -518,21 +516,6 @@ class ApiService:
 # ======================
 class UiService:
     @staticmethod
-    def get_chat_audio_player():
-        return f"""
-        <div style="
-            background: linear-gradient(45deg, #ff66b3, #ff1493);
-            border-radius: 15px;
-            padding: 12px;
-            margin: 5px 0;
-        ">
-            <audio controls style="width:100%; height:40px;">
-                <source src="{Config.AUDIO_FILE}" type="audio/mp3">
-            </audio>
-        </div>
-        """
-
-    @staticmethod
     def show_call_effect():
         LIGANDO_DELAY = 5
         ATENDIDA_DELAY = 3
@@ -628,36 +611,6 @@ class UiService:
         container.empty()
 
     @staticmethod
-    def show_audio_recording_effect(container):
-        message = "Gravando um áudio"
-        dots = ""
-        start_time = time.time()
-        
-        while time.time() - start_time < Config.AUDIO_DURATION:
-            elapsed = time.time() - start_time
-            dots = "." * (int(elapsed) % 4)
-            
-            container.markdown(f"""
-            <div style="
-                color: #888;
-                font-size: 0.8em;
-                padding: 2px 8px;
-                border-radius: 10px;
-                background: rgba(0,0,0,0.05);
-                display: inline-block;
-                margin-left: 10px;
-                vertical-align: middle;
-                font-style: italic;
-            ">
-                {message}{dots}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            time.sleep(0.3)
-        
-        container.empty()
-
-    @staticmethod
     def age_verification():
         st.markdown("""
         <style>
@@ -699,7 +652,7 @@ class UiService:
                 </div>
                 <div class="age-content">
                     <p>Este site contém material explícito destinado exclusivamente a adultos maiores de 18 anos.</p>
-                    <p>Ao acessar este conteúdo, você declara estar em conformidade com todas as leis local aplicáveis.</p>
+                    <p>Ao acessar este conteúdo, você declara estar em conformidade avec todas as leis local aplicáveis.</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -798,6 +751,22 @@ class UiService:
                     text-decoration: none;
                     color: white;
                 }
+                .hot-section {
+                    background: linear-gradient(45deg, #ff1493, #9400d3);
+                    padding: 15px;
+                    border-radius: 8px;
+                    color: white;
+                    text-align: center;
+                    margin: 10px 0;
+                }
+                .hot-section h4 {
+                    margin: 0 0 10px 0;
+                    font-size: 1.1em;
+                }
+                .hot-section p {
+                    margin: 0;
+                    font-size: 0.9em;
+                }
             </style>
             """, unsafe_allow_html=True)
             
@@ -815,6 +784,15 @@ class UiService:
             """.format(profile_img=Config.IMG_PROFILE), unsafe_allow_html=True)
             
             st.markdown("---")
+            
+            # Seção hot com tema mais sensual
+            st.markdown("""
+            <div class="hot-section">
+                <h4>🔥 CONTEÚDO EXCLUSIVO</h4>
+                <p>Fotos e vídeos quentes esperando por você!</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
             st.markdown("### Menu Exclusivo")
             
             menu_options = {
@@ -858,6 +836,16 @@ class UiService:
             <a href="{Config.SOCIAL_LINKS['tiktok']}" target="_blank" class="social-button">
                 🎵 TikTok
             </a>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # Seção hot adicional
+            st.markdown("""
+            <div class="hot-section">
+                <h4>💦 CONTEÚDO MOLHADINHA</h4>
+                <p>Vídeos exclusivos me masturbando!</p>
+            </div>
             """, unsafe_allow_html=True)
             
             st.markdown("---")
@@ -1177,6 +1165,9 @@ class ChatService:
             message
         )
         
+        # Adicionar delay de 3 segundos antes de responder
+        time.sleep(3)
+        
         # Obter resposta do Gemini
         resposta = ApiService.ask_gemini(
             message, 
@@ -1205,12 +1196,13 @@ class ChatService:
                 margin: 5px 0;
             ">
                 <div style="
-                    background: linear-gradient(45deg, #ff66b3, #ff1493);
+                    background: linear-gradient(45deg, #128C7E, #25D366);
                     color: white;
                     padding: 12px 16px;
                     border-radius: 18px 18px 0 18px;
                     max-width: 70%;
                     margin-left: 30%;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
                 ">
                     {content}
                 </div>
@@ -1226,11 +1218,12 @@ class ChatService:
             with col2:
                 st.markdown(f"""
                 <div style="
-                    background: rgba(255, 102, 179, 0.1);
+                    background: rgba(255, 255, 255, 0.9);
                     padding: 12px 16px;
                     border-radius: 18px 18px 18px 0;
                     margin: 5px 0;
-                    border: 1px solid rgba(255, 102, 179, 0.2);
+                    border: 1px solid rgba(0,0,0,0.1);
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
                 ">
                     {content}
                 </div>
@@ -1241,7 +1234,7 @@ class ChatService:
         st.markdown("""
         <style>
             .chat-header {
-                background: linear-gradient(45deg, #ff66b3, #ff1493);
+                background: linear-gradient(45deg, #128C7E, #25D366);
                 padding: 15px;
                 border-radius: 10px;
                 color: white;
@@ -1252,9 +1245,16 @@ class ChatService:
                 max-height: 500px;
                 overflow-y: auto;
                 padding: 10px;
-                background: rgba(255, 255, 255, 0.05);
+                background: #e5ddd5;
                 border-radius: 10px;
                 margin-bottom: 20px;
+                background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyNpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQ1IDc5LjE2MzQ5OSwgMjAxOC8wOC8xMy0xNjo0MDoyMiAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIChNYWNpbnRvc2gpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjNFM0ZCMkI5RkQ2QjExRUFBNkQ0RUIwN0YxMkI2Q0RGIiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjNFM0ZCMkJBRkQ2QjExRUFBNkQ0RUIwN0YxMkI2Q0RGIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6M0UzRkIyQjdGRDZCMTFFQUE2RDRFQjA3RjEyQjZDREYiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6M0UzRkIyQjhGRDZCMTFFQUE2RDRFQjA3RjEyQjZDREYiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz4Mj/LoAAAAWUlEQVR42mL8//8/Awy8AYl5QOIg8B8kDgX/QeJg8AYkzgMS/wcSB4M3QOIsIPF/IHEweAMkzgIS/wcSB4M3QOIsIPF/IHEweAMkzgIS/wcSB4M3QOIsIPF/IHEwAAAoIAR1DCH0lAAAAABJRU5ErkJggg==");
+            }
+            .chat-input {
+                background: white;
+                border-radius: 20px;
+                padding: 10px;
+                border: 1px solid #ddd;
             }
         </style>
         """, unsafe_allow_html=True)
@@ -1317,9 +1317,6 @@ class ChatService:
             
             save_persistent_data()
             st.rerun()
-        
-        # Mostrar player de áudio fixo
-        st.markdown(UiService.get_chat_audio_player(), unsafe_allow_html=True)
 
 # ======================
 # INICIALIZAÇÃO E CONTROLE PRINCIPAL
