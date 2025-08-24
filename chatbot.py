@@ -134,6 +134,7 @@ class Config:
     IMG_HOME_PREVIEWS = [
         "https://i.ibb.co/VY42ZMST/BY-Admiregirls-su-Admiregirls-su-255.jpg",
         "https://i.ibb.co/Q7s9Zwcr/BY-Admiregirls-su-Admiregirls-su-183.jpg",
+        "https://i.ibb.co/0jRMxrFB/BY-Admiregirls-su-Admiregirls-su-271.jpg",
     ]
     SOCIAL_LINKS = {
         "instagram": "https://instagram.com/myllealves",
