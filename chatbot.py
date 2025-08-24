@@ -10,9 +10,17 @@ import sqlite3
 import re
 import os
 import uuid
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from functools import lru_cache
+import textwrap
+from typing import List, Dict, Any, Optional
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ======================
 # CONFIGURAÇÃO INICIAL DO STREAMLIT
@@ -66,6 +74,16 @@ hide_streamlit_style = """
         margin: 0 !important;
         padding: 0 !important;
     }
+    .chat-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 10px;
+        border-top: 1px solid #ddd;
+        z-index: 999;
+    }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -108,6 +126,40 @@ class Config:
         "telegram": "https://t.me/myllealves",
         "tiktok": "https://tiktok.com/@myllealves"
     }
+    # Áudios da Mylle Alves
+    AUDIO_FILES = {
+        "saudacao": "https://exemplo.com/audios/saudacao.mp3",
+        "sedutora": "https://exemplo.com/audios/sedutora.mp3",
+        "excitada": "https://exemplo.com/audios/excitada.mp3",
+        "surpresa": "https://exemplo.com/audios/surpresa.mp3"
+    }
+    # Configurações do sistema anti-fake
+    ANTI_FAKE_THRESHOLD = 0.7
+    MIN_TYPING_TIME = 1.0
+    MAX_TYPING_TIME = 5.0
+    # Templates de resposta com variações
+    RESPONSE_TEMPLATES = {
+        "saudacao": [
+            "Oi amor! Que bom te ver por aqui... 😘",
+            "Oiiii! Tava esperando por você... 😏",
+            "Eaí gato! Que surpresa boa te ver aqui... 💋"
+        ],
+        "fotos": [
+            "Ahh querido, minhas fotos são bem ousadas viu? To com um ensaio novo onde mostro TUDO... Quer dar uma olhadinha? 😈",
+            "Nossa, amor... Minhas fotos tão bem quentes! Acabei de fazer um ensaio mostrando cada detalhe... Quer ver? 😏",
+            "To com umas fotos aqui que até eu fico com vergonha... Mostrando tudo mesmo, bem explicitinha... Curioso? 🍑"
+        ],
+        "videos": [
+            "Meus vídeos são bem quentes! Tem uns que até eu fico com vergonha de lembrar 😳 To me tocando em um deles agora mesmo... Quer ver? 💦",
+            "Nossa, amor... Meus vídeos são explícitos mesmo! Mostro tudo, sem censura... Tô até molhadinha agora pensando nisso... 🔥",
+            "Acabei de gravar um vídeo bem safado... To toda excitada aqui... Quer ver essa novidade? 😈"
+        ],
+        "preview": [
+            "Ahh você é tão fofo pedindo presentinho... Deixa eu te mostrar uma coisinha, mas promete que depois vem ver tudo? 😘",
+            "Gosto de quem pede com educação... Toma uma prévia aqui, mas o melhor mesmo tá no meu conteúdo completo! 😏",
+            "Só porque você pediu tão bonito... Toma uma amostrinha do que eu tenho aqui! Depois me conta o que achou... 🍑"
+        ]
+    }
 
 # ======================
 # PERSISTÊNCIA DE ESTADO
@@ -134,6 +186,16 @@ class PersistentState:
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Tabela para preferências do usuário
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_preferences (
+                user_id TEXT PRIMARY KEY,
+                preferences TEXT NOT NULL,
+                sentiment_score REAL DEFAULT 0.5,
+                last_interaction TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES global_state (user_id)
+            )
+        ''')
         self.conn.commit()
 
     def save_state(self, user_id, data):
@@ -149,6 +211,31 @@ class PersistentState:
         cursor.execute('SELECT session_data FROM global_state WHERE user_id = ?', (user_id,))
         result = cursor.fetchone()
         return json.loads(result[0]) if result else None
+    
+    def save_preferences(self, user_id, preferences):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT OR REPLACE INTO user_preferences (user_id, preferences, last_interaction)
+            VALUES (?, ?, ?)
+        ''', (user_id, json.dumps(preferences), datetime.now()))
+        self.conn.commit()
+    
+    def load_preferences(self, user_id):
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT preferences, sentiment_score FROM user_preferences WHERE user_id = ?', (user_id,))
+        result = cursor.fetchone()
+        if result:
+            return json.loads(result[0]), result[1]
+        return {}, 0.5
+    
+    def update_sentiment(self, user_id, score):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            UPDATE user_preferences 
+            SET sentiment_score = ?, last_interaction = ?
+            WHERE user_id = ?
+        ''', (score, datetime.now(), user_id))
+        self.conn.commit()
 
 def get_user_id():
     if 'user_id' not in st.session_state:
@@ -167,6 +254,13 @@ def load_persistent_data():
     for key, value in saved_data.items():
         if key not in st.session_state:
             st.session_state[key] = value
+    
+    # Carregar preferências do usuário
+    preferences, sentiment_score = db.load_preferences(user_id)
+    if 'user_preferences' not in st.session_state:
+        st.session_state.user_preferences = preferences
+    if 'sentiment_score' not in st.session_state:
+        st.session_state.sentiment_score = sentiment_score
 
 def save_persistent_data():
     user_id = get_user_id()
@@ -176,7 +270,8 @@ def save_persistent_data():
         'age_verified', 'messages', 'request_count',
         'connection_complete', 'chat_started', 'audio_sent',
         'current_page', 'show_vip_offer', 'session_id',
-        'last_cta_time', 'preview_sent', 'preview_count'
+        'last_cta_time', 'preview_sent', 'preview_count',
+        'user_preferences', 'sentiment_score'
     ]
     
     new_data = {key: st.session_state.get(key) for key in persistent_keys if key in st.session_state}
@@ -184,6 +279,14 @@ def save_persistent_data():
     
     if new_data != saved_data:
         db.save_state(user_id, new_data)
+    
+    # Salvar preferências do usuário
+    if 'user_preferences' in st.session_state:
+        db.save_preferences(user_id, st.session_state.user_preferences)
+    
+    # Atualizar sentimento
+    if 'sentiment_score' in st.session_state:
+        db.update_sentiment(user_id, st.session_state.sentiment_score)
 
 # ======================
 # MODELOS DE DADOS
@@ -241,10 +344,285 @@ class Persona:
       "preview": {
         "show": true/false,
         "image_url": "url_da_imagem"
+      },
+      "audio": {
+        "show": true/false,
+        "url": "url_do_audio"
       }
     }
     """
 
+# ======================
+# SISTEMA ANTI-FAKE AVANÇADO
+# ======================
+class AntiFakeSystem:
+    @staticmethod
+    def analyze_behavior(user_input: str, message_history: List[Dict]) -> float:
+        """Analisa o comportamento do usuário para detectar padrões não humanos"""
+        score = 1.0  # 1.0 = humano, 0.0 = bot
+        
+        # Verificar comprimento da mensagem
+        if len(user_input) > 200:
+            score *= 0.8  # Mensagens muito longas são suspeitas
+        
+        # Verificar repetição de caracteres
+        if re.search(r'(.)\1{3,}', user_input):
+            score *= 0.7  # Muitos caracteres repetidos
+        
+        # Verificar padrões de URL
+        if re.search(r'http[s]?://', user_input):
+            score *= 0.6  # URLs em mensagens são suspeitas
+        
+        # Verificar velocidade de resposta
+        if 'last_message_time' in st.session_state:
+            response_time = time.time() - st.session_state.last_message_time
+            if response_time < 1.0:  # Respostas muito rápidas
+                score *= 0.5
+        
+        # Verificar padrões de mensagem
+        spam_patterns = [
+            r'compra', r'venda', r'promoção', r'desconto', r'oferta',
+            r'segue', r'curtir', r'instagram', r'follow', r'like'
+        ]
+        
+        for pattern in spam_patterns:
+            if re.search(pattern, user_input.lower()):
+                score *= 0.6
+        
+        # Verificar histórico de mensagens
+        if len(message_history) > 3:
+            recent_messages = [msg['content'] for msg in message_history[-3:] if msg['role'] == 'user']
+            if len(recent_messages) >= 2 and recent_messages[-1] == recent_messages[-2]:
+                score *= 0.4  # Mensagens repetidas
+        
+        return max(0.0, min(1.0, score))
+    
+    @staticmethod
+    def should_block_user(score: float) -> bool:
+        """Decide se deve bloquear o usuário com base no score"""
+        return score < Config.ANTI_FAKE_THRESHOLD
+    
+    @staticmethod
+    def get_fake_response() -> Dict:
+        """Resposta para usuários detectados como fake"""
+        return {
+            "text": "Desculpe, não estou conseguindo processar sua mensagem no momento. Que tal dar uma olhadinha no meu conteúdo exclusivo? 😘",
+            "cta": {
+                "show": True,
+                "label": "Ver Conteúdo",
+                "target": "offers"
+            },
+            "preview": {
+                "show": False
+            },
+            "audio": {
+                "show": False
+            }
+        }
+
+# ======================
+# SISTEMA DE ANÁLISE DE SENTIMENTO
+# ======================
+class SentimentAnalyzer:
+    @staticmethod
+    def analyze_sentiment(user_input: str) -> float:
+        """Analisa o sentimento do usuário com base na mensagem"""
+        positive_words = [
+            'adoro', 'amo', 'gosto', 'linda', 'gata', 'perfeita', 'maravilhosa',
+            'delicia', 'gostosa', 'querida', 'amor', 'fofa', 'encantadora', 'sensual'
+        ]
+        
+        negative_words = [
+            'odeio', 'nojenta', 'feia', 'horrível', 'pessima', 'ruim', 'desisti',
+            'cancela', 'devolve', 'estorno', 'reclamação', 'insatisfeito', 'arrependido'
+        ]
+        
+        aggressive_words = [
+            'puta', 'vadia', 'cadela', 'prostituta', 'piranha', 'vagabunda',
+            'fodase', 'foda-se', 'merda', 'porra', 'caralho', 'cu', 'buceta'
+        ]
+        
+        text = user_input.lower()
+        positive_count = sum(1 for word in positive_words if word in text)
+        negative_count = sum(1 for word in negative_words if word in text)
+        aggressive_count = sum(1 for word in aggressive_words if word in text)
+        
+        total_words = len(text.split())
+        if total_words == 0:
+            return 0.5  # Neutro
+        
+        # Calcular score de sentimento
+        sentiment = 0.5  # Neutro
+        sentiment += (positive_count * 0.1)
+        sentiment -= (negative_count * 0.15)
+        sentiment -= (aggressive_count * 0.2)
+        
+        return max(0.0, min(1.0, sentiment))
+    
+    @staticmethod
+    def adapt_response_based_on_sentiment(response: Dict, sentiment_score: float) -> Dict:
+        """Adapta a resposta com base no sentimento do usuário"""
+        if sentiment_score < 0.3:  # Negativo
+            response['text'] = response['text'].replace('😈', '😔')
+            response['text'] = response['text'].replace('😏', '🥺')
+            response['text'] = response['text'].replace('💦', '💔')
+            response['text'] = "Poxa, me desculpe se te deixei chateado... " + response['text']
+        elif sentiment_score > 0.7:  # Positivo
+            response['text'] = response['text'].replace('😈', '😍')
+            response['text'] = response['text'].replace('😏', '🥰')
+            response['text'] = response['text'] + " Você me deixa tão feliz! 💖"
+        
+        return response
+
+# ======================
+# SISTEMA DE MEMÓRIA E PREFERÊNCIAS
+# ======================
+class MemorySystem:
+    @staticmethod
+    def extract_preferences(user_input: str, current_preferences: Dict) -> Dict:
+        """Extrai preferências do usuário da mensagem"""
+        preferences = current_preferences.copy()
+        
+        # Detectar interesses em conteúdos específicos
+        if any(word in user_input.lower() for word in ['foto', 'fotos', 'fotinho']):
+            preferences['interesse_fotos'] = True
+            preferences['ultimo_interesse'] = 'fotos'
+        
+        if any(word in user_input.lower() for word in ['video', 'vídeo', 'vídeos', 'filme']):
+            preferences['interesse_videos'] = True
+            preferences['ultimo_interesse'] = 'videos'
+        
+        if any(word in user_input.lower() for word in ['audio', 'áudio', 'voz', 'ouvir']):
+            preferences['interesse_audios'] = True
+            preferences['ultimo_interesse'] = 'audios'
+        
+        # Detectar preferências por tipos de conteúdo
+        if any(word in user_input.lower() for word in ['sensual', 'leve', 'soft']):
+            preferences['preferencia_conteudo'] = 'sensual'
+        
+        if any(word in user_input.lower() for word in ['explicito', 'hard', 'pesado', 'forte']):
+            preferences['preferencia_conteudo'] = 'explicito'
+        
+        # Detectar nome do usuário se mencionado
+        name_patterns = [r'meu nome é (\w+)', r'pode me chamar de (\w+)', r'sou o (\w+)']
+        for pattern in name_patterns:
+            match = re.search(pattern, user_input.lower())
+            if match:
+                preferences['nome'] = match.group(1).capitalize()
+                break
+        
+        return preferences
+    
+    @staticmethod
+    def personalize_response(response: Dict, preferences: Dict) -> Dict:
+        """Personaliza a resposta com base nas preferências do usuário"""
+        if 'nome' in preferences and preferences['nome']:
+            response['text'] = response['text'].replace('amor', preferences['nome'])
+            response['text'] = response['text'].replace('querido', preferences['nome'])
+            response['text'] = response['text'].replace('gato', preferences['nome'])
+        
+        if 'ultimo_interesse' in preferences:
+            if preferences['ultimo_interesse'] == 'fotos':
+                response['text'] += " Tenho umas fotos bem quentes que você vai adorar! 📸"
+            elif preferences['ultimo_interesse'] == 'videos':
+                response['text'] += " Meus vídeos são ainda mais quentes que as fotos! 🎥"
+            elif preferences['ultimo_interesse'] == 'audios':
+                response['text'] += " Adoro gravar áudios para você! 🎧"
+        
+        return response
+
+# ======================
+# SISTEMA DE BUFFER DE MENSAGENS FRAGMENTADAS
+# ======================
+class MessageBufferSystem:
+    @staticmethod
+    def fragment_message(message: str, max_length: int = 160) -> List[str]:
+        """Fragmenta mensagens longas em partes menores"""
+        if len(message) <= max_length:
+            return [message]
+        
+        # Quebrar a mensagem em partes menores
+        fragments = []
+        words = message.split()
+        current_fragment = ""
+        
+        for word in words:
+            if len(current_fragment) + len(word) + 1 <= max_length:
+                current_fragment += " " + word if current_fragment else word
+            else:
+                fragments.append(current_fragment)
+                current_fragment = word
+        
+        if current_fragment:
+            fragments.append(current_fragment)
+        
+        return fragments
+    
+    @staticmethod
+    def add_typing_effects(fragments: List[str]) -> List[str]:
+        """Adiciona efeitos de digitação às mensagens fragmentadas"""
+        enhanced_fragments = []
+        
+        for i, fragment in enumerate(fragments):
+            # Adicionar hesitações e erros gramaticais aleatórios
+            if random.random() < 0.3 and i > 0:  # 30% de chance após o primeiro fragmento
+                hesitations = ["ahs ", "hmms ", "ahh ", "hmm "]
+                fragment = random.choice(hesitations) + fragment
+            
+            # Adicionar trailing off em alguns casos
+            if random.random() < 0.2 and i == len(fragments) - 1:
+                trailing = ["...", "..", "... 😏", "... 😈"]
+                fragment += random.choice(trailing)
+            
+            enhanced_fragments.append(fragment)
+        
+        return enhanced_fragments
+
+# ======================
+# SISTEMA DE ÁUDIO CONTEXTUAL
+# ======================
+class AudioSystem:
+    @staticmethod
+    def should_play_audio(context: str, sentiment: float, last_audio_time: float = 0) -> bool:
+        """Decide se deve tocar um áudio com base no contexto"""
+        current_time = time.time()
+        
+        # Não tocar áudio se um foi tocado recentemente
+        if current_time - last_audio_time < 120:  # 2 minutos de intervalo
+            return False
+        
+        # Contextos onde áudio é apropriado
+        audio_contexts = [
+            'saudacao', 'sedutora', 'excitada', 'surpresa', 'despedida'
+        ]
+        
+        # Verificar se o contexto atual justifica um áudio
+        if any(ctx in context for ctx in audio_contexts):
+            # Baseado no sentimento - mais provável se positivo
+            probability = 0.2 + (sentiment * 0.3)
+            return random.random() < probability
+        
+        return False
+    
+    @staticmethod
+    def select_audio(context: str, sentiment: float) -> str:
+        """Seleciona o áudio apropriado para o contexto"""
+        if sentiment < 0.3:
+            return Config.AUDIO_FILES["saudacao"]  # Áudio mais neutro
+        
+        if "saudacao" in context:
+            return Config.AUDIO_FILES["saudacao"]
+        elif "sedutora" in context or "excitada" in context:
+            return Config.AUDIO_FILES["sedutora"] if random.random() < 0.5 else Config.AUDIO_FILES["excitada"]
+        elif "surpresa" in context:
+            return Config.AUDIO_FILES["surpresa"]
+        
+        # Padrão - áudio sedutor
+        return Config.AUDIO_FILES["sedutora"]
+
+# ======================
+# ENGINE DE CTA
+# ======================
 class CTAEngine:
     @staticmethod
     def should_show_cta(conversation_history: list) -> bool:
@@ -330,11 +708,7 @@ class CTAEngine:
         
         if any(p in user_input for p in ["foto", "fotos", "buceta", "peito", "bunda", "seios"]):
             return {
-                "text": random.choice([
-                    "Ahh querido, minhas fotos são bem ousadas viu? To com um ensaio novo onde mostro TUDO... Quer dar uma olhadinha? 😈",
-                    "Nossa, amor... Minhas fotos tão bem quentes! Acabei de fazer um ensaio mostrando cada detalhe... Quer ver? 😏",
-                    "To com umas fotos aqui que até eu fico com vergonha... Mostrando tudo mesmo, bem explicitinha... Curioso? 🍑"
-                ]),
+                "text": random.choice(Config.RESPONSE_TEMPLATES["fotos"]),
                 "cta": {
                     "show": True,
                     "label": "Ver Fotos Quentes",
@@ -342,16 +716,15 @@ class CTAEngine:
                 },
                 "preview": {
                     "show": False
+                },
+                "audio": {
+                    "show": False
                 }
             }
         
         elif any(v in user_input for v in ["video", "transar", "masturbar", "vídeo", "se masturbando"]):
             return {
-                "text": random.choice([
-                    "Meus vídeos são bem quentes! Tem uns que até eu fico com vergonha de lembrar 😳 To me tocando em um deles agora mesmo... Quer ver? 💦",
-                    "Nossa, amor... Meus vídeos são explícitos mesmo! Mostro tudo, sem censura... Tô até molhadinha agora pensando nisso... 🔥",
-                    "Acabei de gravar um vídeo bem safado... To toda excitada aqui... Quer ver essa novidade? 😈"
-                ]),
+                "text": random.choice(Config.RESPONSE_TEMPLATES["videos"]),
                 "cta": {
                     "show": True,
                     "label": "Ver Vídeos Exclusivos",
@@ -359,16 +732,15 @@ class CTAEngine:
                 },
                 "preview": {
                     "show": False
+                },
+                "audio": {
+                    "show": False
                 }
             }
         
         elif any(p in user_input for p in ["presente", "presentinho", "prévia", "amostra"]):
             return {
-                "text": random.choice([
-                    "Ahh você é tão fofo pedindo presentinho... Deixa eu te mostrar uma coisinha, mas promete que depois vem ver tudo? 😘",
-                    "Gosto de quem pede com educação... Toma uma prévia aqui, mas o melhor mesmo tá no meu conteúdo completo! 😏",
-                    "Só porque você pediu tão bonito... Toma uma amostrinha do que eu tenho aqui! Depois me conta o que achou... 🍑"
-                ]),
+                "text": random.choice(Config.RESPONSE_TEMPLATES["preview"]),
                 "cta": {
                     "show": True,
                     "label": "Quero Ver Tudo!",
@@ -377,6 +749,9 @@ class CTAEngine:
                 "preview": {
                     "show": True,
                     "image_url": random.choice(Config.PREVIEW_IMAGES)
+                },
+                "audio": {
+                    "show": False
                 }
             }
         
@@ -391,6 +766,9 @@ class CTAEngine:
                     "show": False
                 },
                 "preview": {
+                    "show": False
+                },
+                "audio": {
                     "show": False
                 }
             }
@@ -449,7 +827,14 @@ class ApiService:
 
     @staticmethod
     def _call_gemini_api(prompt: str, session_id: str, conn) -> dict:
-        delay_time = random.uniform(3, 8)
+        # Sistema anti-fake - analisar comportamento do usuário
+        behavior_score = AntiFakeSystem.analyze_behavior(prompt, st.session_state.messages)
+        if AntiFakeSystem.should_block_user(behavior_score):
+            logger.warning(f"Comportamento suspeito detectado. Score: {behavior_score}")
+            return AntiFakeSystem.get_fake_response()
+        
+        # Tempo de resposta variável (1-5 minutos)
+        delay_time = random.uniform(Config.MIN_TYPING_TIME, Config.MAX_TYPING_TIME)
         time.sleep(delay_time)
         
         status_container = st.empty()
@@ -463,7 +848,7 @@ class ApiService:
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": f"{Persona.MylleAlves}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }},\n  \"preview\": {{\n    \"show\": true/false,\n    \"image_url\": \"url_da_imagem\"\n  }}\n}}"}]
+                    "parts": [{"text": f"{Persona.MylleAlves}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }},\n  \"preview\": {{\n    \"show\": true/false,\n    \"image_url\": \"url_da_imagem\"\n  }},\n  \"audio\": {{\n    \"show\": true/false,\n    \"url\": \"url_do_audio\"\n  }}\n}}"}]
                 }
             ],
             "generationConfig": {
@@ -500,16 +885,74 @@ class ApiService:
                             st.session_state.preview_count = 0
                         st.session_state.preview_count += 1
                 
+                # Sistema de análise de sentimento
+                sentiment_score = SentimentAnalyzer.analyze_sentiment(prompt)
+                st.session_state.sentiment_score = sentiment_score
+                resposta = SentimentAnalyzer.adapt_response_based_on_sentiment(resposta, sentiment_score)
+                
+                # Sistema de memória e preferências
+                if 'user_preferences' not in st.session_state:
+                    st.session_state.user_preferences = {}
+                
+                st.session_state.user_preferences = MemorySystem.extract_preferences(
+                    prompt, st.session_state.user_preferences
+                )
+                resposta = MemorySystem.personalize_response(resposta, st.session_state.user_preferences)
+                
+                # Sistema de áudio contextual
+                if AudioSystem.should_play_audio(
+                    resposta['text'], 
+                    sentiment_score, 
+                    st.session_state.get('last_audio_time', 0)
+                ):
+                    resposta['audio'] = {
+                        "show": True,
+                        "url": AudioSystem.select_audio(resposta['text'], sentiment_score)
+                    }
+                    st.session_state.last_audio_time = time.time()
+                else:
+                    resposta['audio'] = {"show": False}
+                
                 return resposta
             
             except json.JSONDecodeError:
                 # Fallback para resposta gerada localmente
-                return CTAEngine.generate_response(prompt)
+                resposta = CTAEngine.generate_response(prompt)
+                
+                # Aplicar sistemas ao fallback também
+                sentiment_score = SentimentAnalyzer.analyze_sentiment(prompt)
+                st.session_state.sentiment_score = sentiment_score
+                resposta = SentimentAnalyzer.adapt_response_based_on_sentiment(resposta, sentiment_score)
+                
+                if 'user_preferences' not in st.session_state:
+                    st.session_state.user_preferences = {}
+                
+                st.session_state.user_preferences = MemorySystem.extract_preferences(
+                    prompt, st.session_state.user_preferences
+                )
+                resposta = MemorySystem.personalize_response(resposta, st.session_state.user_preferences)
+                
+                return resposta
                 
         except Exception as e:
             st.error(f"Erro na API: {str(e)}")
             # Fallback para resposta gerada localmente
-            return CTAEngine.generate_response(prompt)
+            resposta = CTAEngine.generate_response(prompt)
+            
+            # Aplicar sistemas ao fallback também
+            sentiment_score = SentimentAnalyzer.analyze_sentiment(prompt)
+            st.session_state.sentiment_score = sentiment_score
+            resposta = SentimentAnalyzer.adapt_response_based_on_sentiment(resposta, sentiment_score)
+            
+            if 'user_preferences' not in st.session_state:
+                st.session_state.user_preferences = {}
+            
+            st.session_state.user_preferences = MemorySystem.extract_preferences(
+                prompt, st.session_state.user_preferences
+            )
+            resposta = MemorySystem.personalize_response(resposta, st.session_state.user_preferences)
+            
+            return resposta
 
 # ======================
 # SERVIÇOS DE INTERFACE
@@ -992,7 +1435,7 @@ class UiService:
                     <p>✓ BÔNUS: 1 áudio</p>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            ""', unsafe_allow_html=True)
             
             if st.button("Comprar Molhadinha", key="buy_molhadinha", use_container_width=True):
                 st.markdown(f'<meta http-equiv="refresh" content="0; url={Config.CHECKOUT_MOLHADINHA}">', unsafe_allow_html=True)
@@ -1148,6 +1591,9 @@ class ChatService:
                 },
                 "preview": {
                     "show": False
+                },
+                "audio": {
+                    "show": False
                 }
             }
         
@@ -1165,8 +1611,9 @@ class ChatService:
             message
         )
         
-        # Adicionar delay de 3 segundos antes de responder
-        time.sleep(3)
+        # Adicionar delay de resposta variável
+        delay_time = random.uniform(Config.MIN_TYPING_TIME, Config.MAX_TYPING_TIME)
+        time.sleep(delay_time)
         
         # Obter resposta do Gemini
         resposta = ApiService.ask_gemini(
@@ -1174,6 +1621,12 @@ class ChatService:
             st.session_state.session_id,
             conn
         )
+        
+        # Fragmentar mensagem longa e adicionar efeitos de digitação
+        if len(resposta['text']) > 160:
+            fragments = MessageBufferSystem.fragment_message(resposta['text'])
+            fragments = MessageBufferSystem.add_typing_effects(fragments)
+            resposta['text'] = ' '.join(fragments)
         
         # Salvar resposta da assistente
         DatabaseService.save_message(
@@ -1248,7 +1701,8 @@ class ChatService:
                 background: #e5ddd5;
                 border-radius: 10px;
                 margin-bottom: 20px;
-                background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyNpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQ1IDc5LjE2MzQ5OSwgMjAxOC8wOC8xMy0xNjo0MDoyMiAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIChNYWNpbnRvc2gpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjNFM0ZCMkI5RkQ2QjExRUFBNkQ0RUIwN0YxMkI2Q0RGIiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjNFM0ZCMkJBRkQ2QjExRUFBNkQ0RUIwN0YxMkI2Q0RGIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6M0UzRkIyQjdGRDZCMTFFQUE2RDRFQjA3RjEyQjZDREYiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6M0UzRkIyQjhGRDZCMTFFQUE2RDRFQjA3RjEyQjZDREYiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz4Mj/LoAAAAWUlEQVR42mL8//8/Awy8AYl5QOIg8B8kDgX/QeJg8AYkzgMS/wcSB4M3QOIsIPF/IHEweAMkzgIS/wcSB4M3QOIsIPF/IHEweAMkzgIS/wcSB4M3QOIsIPF/IHEwAAAoIAR1DCH0lAAAAABJRU5ErkJggg==");
+                background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyNpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpnj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQ1IDc5LjE2MzQ5OSwgMjAxOC8wOC8xMy0xNjo0MDoyMiAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmADovYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdFJlZj0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlUmVmIyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgKE1hY2ludG9zaCkiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6M0UzRkIyQjlGRDZCMTFFQUE2RDRFQjA3RjEyQjZDREYiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6M0UzRkIyQkFGRDZCMTFFQUE2RDRFQjA3RjEyQjZDREYiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDozRTNGQjJCN0ZENkIxMUVBQTZENEVCMDdGMTJCNkNERiIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDozRTNGQjJCOEZENkIxMUVBQTZENEVCMDdGMTJCNkNERiIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/Pg==
+            ");
             }
             .chat-input {
                 background: white;
@@ -1288,13 +1742,24 @@ class ChatService:
                                 use_column_width=True,
                                 caption="📸 Presentinho para você! 😘"
                             )
+                        
+                        # Mostrar áudio se existir
+                        if content_data.get("audio", {}).get("show"):
+                            st.audio(
+                                content_data["audio"]["url"],
+                                format="audio/mp3"
+                            )
                     
                     except json.JSONDecodeError:
                         ChatService.display_chat_message("assistant", msg["content"])
             
             st.markdown('</div>', unsafe_allow_html=True)
         
-        # Área de input
+        # Área de input no rodapé fixo
+        st.markdown("""
+        <div class="chat-footer">
+        """, unsafe_allow_html=True)
+        
         col1, col2 = st.columns([5, 1])
         
         with col1:
@@ -1307,6 +1772,8 @@ class ChatService:
         
         with col2:
             send_button = st.button("Enviar", use_container_width=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
         
         # Processar mensagem de texto
         if send_button and user_input:
@@ -1339,6 +1806,12 @@ def initialize_session():
     
     if 'audio_sent' not in st.session_state:
         st.session_state.audio_sent = False
+    
+    if 'last_message_time' not in st.session_state:
+        st.session_state.last_message_time = time.time()
+    
+    if 'last_audio_time' not in st.session_state:
+        st.session_state.last_audio_time = 0
 
 def main():
     # Carregar dados persistentes
