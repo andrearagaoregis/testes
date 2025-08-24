@@ -18,7 +18,7 @@ from functools import lru_cache
 # CONFIGURAÇÃO INICIAL DO STREAMLIT
 # ======================
 st.set_page_config(
-    page_title="Paloma Premium",
+    page_title="Mylle Alves Premium",
     page_icon="💋",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -74,29 +74,29 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # CONSTANTES E CONFIGURAÇÕES
 # ======================
 class Config:
-    API_KEY = "AIzaSyDTaYm2KHHnVPdWy4l5pEaGPM7QR0g3IPc"
+    API_KEY = "AIzaSyDbGIpsR4vmAfy30eEuPjWun3Hdz6xj24U"
     API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
     VIP_LINK = "https://exemplo.com/vip"
-    CHECKOUT_START = "https://checkout.exemplo.com/start"
-    CHECKOUT_PREMIUM = "https://checkout.exemplo.com/premium"
-    CHECKOUT_EXTREME = "https://checkout.exemplo.com/extreme"
+    CHECKOUT_TARADINHA = "https://app.pushinpay.com.br/#/service/pay/9FACC74F-01EC-4770-B182-B5775AF62A1D"
+    CHECKOUT_MOLHADINHA = "https://app.pushinpay.com.br/#/service/pay/9FACD1E6-0EFD-4E3E-9F9D-BA0C1A2D7E7A"
+    CHECKOUT_SAFADINHA = "https://app.pushinpay.com.br/#/service/pay/9FACD395-EE65-458E-9B7E-FED750CC9CA9"
     CHECKOUT_VIP_1MES = "https://checkout.exemplo.com/vip-1mes"
     CHECKOUT_VIP_3MESES = "https://checkout.exemplo.com/vip-3meses"
     CHECKOUT_VIP_1ANO = "https://checkout.exemplo.com/vip-1ano"
     MAX_REQUESTS_PER_SESSION = 30
     REQUEST_TIMEOUT = 30
-    AUDIO_FILE = "https://github.com/gustapb77/ChatBotHot/raw/refs/heads/main/assets/audio/paloma_audio.mp3"
+    AUDIO_FILE = "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Oi%20meu%20amor%20tudo%20bem.mp3"
     AUDIO_DURATION = 7
-    IMG_PROFILE = "https://i.ibb.co/ks5CNrDn/IMG-9256.jpg"
+    IMG_PROFILE = "https://i.ibb.co/vxnTYm0Q/BY-Admiregirls-su-Admiregirls-su-156.jpg"
     IMG_GALLERY = [
-        "https://i.ibb.co/zhNZL4FF/IMG-9198.jpg",
-        "https://i.ibb.co/Y4B7CbXf/IMG-9202.jpg",
-        "https://i.ibb.co/Fqf0gPPq/IMG-9199.jpg"
+        "https://i.ibb.co/C3mDFyJV/BY-Admiregirls-su-Admiregirls-su-036.jpg",
+        "https://i.ibb.co/sv2kdLLC/BY-Admiregirls-su-Admiregirls-su-324.jpg",
+        "https://i.ibb.co/BHY8ZZG7/BY-Admiregirls-su-Admiregirls-su-033.jpg"
     ]
     IMG_HOME_PREVIEWS = [
-        "https://i.ibb.co/k2MJg4XC/Save-ClipApp-412457343-378531441368078-7870326395110089440-n.jpg",
-        "https://i.ibb.co/MxqKBk1X/Save-ClipApp-481825770-18486618637042608-2702272791254832108-n.jpg",
-        "https://i.ibb.co/F4CkkYTL/Save-ClipApp-461241348-1219420546053727-2357827070610318448-n.jpg"
+        "https://i.ibb.co/BHY8ZZG7/BY-Admiregirls-su-Admiregirls-su-033.jpg",
+        "https://i.ibb.co/Q5cHPBd/BY-Admiregirls-su-Admiregirls-su-183.jpg",
+        "https://i.ibb.co/xq6frp0h/BY-Admiregirls-su-Admiregirls-su-141.jpg"
     ]
     LOGO_URL = "https://i.ibb.co/LX7x3tcB/Logo-Golden-Pepper-Letreiro-1.png"
 
@@ -180,8 +180,8 @@ def save_persistent_data():
 # MODELOS DE DADOS
 # ======================
 class Persona:
-    PALOMA = """
-    [PERFIL PALOMA]
+    Paloma = """
+    [PERFIL Mylle Alves]
     - Mulher vulgar e safada que adora provocar
     - Linguagem direta e cheia de malícia
     - Frases curtas e sem pontuação perfeita
@@ -196,7 +196,7 @@ class Persona:
     1. Quando o histórico mostra clima sexual:
     Histórico:
     Cliente: sua buceta é rosinha?
-    Paloma: adoro mostrar ela aberta
+    Mylle Alves: adoro mostrar ela aberta
     Cliente: quero ver
     Resposta: ```json
     {
@@ -226,7 +226,7 @@ class Persona:
     3. Quando o contexto não justifica CTA:
     Histórico:
     Cliente: oi
-    Paloma: oi gato
+    Mylle Alves: oi gato
     Resposta: ```json
     {
       "text": "eai gostoso",
@@ -394,7 +394,7 @@ class ApiService:
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": f"{Persona.PALOMA}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }}\n}}"}]
+                    "parts": [{"text": f"{Persona.Paloma}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }}\n}}"}]
                 }
             ],
             "generationConfig": {
@@ -469,7 +469,7 @@ class UiService:
             animation: pulse-ring 2s infinite;
         ">
             <div style="font-size: 3rem;">📱</div>
-            <h3 style="color: #ff66b3; margin-bottom: 5px;">Ligando para Paloma...</h3>
+            <h3 style="color: #ff66b3; margin-bottom: 5px;">Ligando para Mylle Alves...</h3>
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 15px;">
                 <div style="width: 10px; height: 10px; background: #4CAF50; border-radius: 50%;"></div>
                 <span style="font-size: 0.9rem;">Online agora</span>
@@ -499,7 +499,7 @@ class UiService:
         ">
             <div style="font-size: 3rem; color: #4CAF50;">✓</div>
             <h3 style="color: #4CAF50; margin-bottom: 5px;">Chamada atendida!</h3>
-            <p style="font-size: 0.9rem; margin:0;">Paloma está te esperando...</p>
+            <p style="font-size: 0.9rem; margin:0;">Mylle Alves está te esperando...</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -707,8 +707,8 @@ class UiService:
             
             st.markdown("""
             <div class="sidebar-header">
-                <img src="{profile_img}" alt="Paloma">
-                <h3 style="color: #ff66b3; margin-top: 10px;">Paloma Premium</h3>
+                <img src="{profile_img}" alt="Mylle Alves">
+                <h3 style="color: #ff66b3; margin-top: 10px;">Mylle Alves Premium</h3>
             </div>
             """.format(profile_img=Config.IMG_PROFILE), unsafe_allow_html=True)
             
@@ -762,7 +762,7 @@ class UiService:
             st.markdown("---")
             st.markdown("""
             <div style="text-align: center; font-size: 0.7em; color: #888;">
-                <p>© 2024 Paloma Premium</p>
+                <p>© 2024 Mylle Alves Premium</p>
                 <p>Conteúdo para maiores de 18 anos</p>
             </div>
             """, unsafe_allow_html=True)
@@ -903,7 +903,7 @@ class UiService:
         
         st.markdown(f"""
         <div class="chat-header">
-            <h2 style="margin:0; font-size:1.5em; display:inline-block;">Chat Privado com Paloma</h2>
+            <h2 style="margin:0; font-size:1.5em; display:inline-block;">Chat Privado com Mylle Alves</h2>
         </div>
         """, unsafe_allow_html=True)
         
@@ -967,7 +967,7 @@ class NewPages:
 
         st.markdown("""
         <div class="hero-banner">
-            <h1 style="color: #ff66b3;">Paloma Premium</h1>
+            <h1 style="color: #ff66b3;">Mylle alves Premium</h1>
             <p>Conteúdo exclusivo que você não encontra em nenhum outro lugar...</p>
             <div style="margin-top: 20px;">
                 <a href="#vip" style="
@@ -1029,13 +1029,13 @@ class NewPages:
                 transform: translateY(-5px);
                 box-shadow: 0 10px 20px rgba(255, 102, 179, 0.3);
             }
-            .package-start {
+            .package-TARADINHA{
                 border-color: #ff66b3;
             }
-            .package-premium {
+            .package-MOLHADINHA {
                 border-color: #9400d3;
             }
-            .package-extreme {
+            .package-SAFADINHA {
                 border-color: #ff0066;
             }
             .package-header {
@@ -1113,21 +1113,21 @@ class NewPages:
         st.markdown('<div class="package-container">', unsafe_allow_html=True)
         
         st.markdown("""
-        <div class="package-box package-start">
+        <div class="package-box package-TARADINHA">
             <div class="package-header">
-                <h3 style="color: #ff66b3;">START</h3>
-                <div class="package-price" style="color: #ff66b3;">R$ 49,90</div>
+                <h3 style="color: #ff66b3;">TARADINHA</h3>
+                <div class="package-price" style="color: #ff66b3;">R$ 19,99</div>
                 <small>para iniciantes</small>
             </div>
             <ul class="package-benefits">
-                <li>10 fotos Inéditas</li>
-                <li>3 vídeo Intimos</li>
+                <li>15 fotos Inéditas</li>
+                <li>15 vídeo Intimos</li>
                 <li>Fotos Exclusivas</li>
                 <li>Videos Intimos </li>
                 <li>Fotos Buceta</li>
             </ul>
             <div style="position: absolute; bottom: 20px; width: calc(100% - 40px);">
-                <a href="{checkout_start}" target="_blank" rel="noopener noreferrer" style="
+                <a href="{checkout_TARADINHA}" target="_blank" rel="noopener noreferrer" style="
                     display: block;
                     background: linear-gradient(45deg, #ff66b3, #ff1493);
                     color: white;
@@ -1144,19 +1144,19 @@ class NewPages:
                 </a>
             </div>
         </div>
-        """.format(checkout_start=Config.CHECKOUT_START), unsafe_allow_html=True)
+        """.format(checkout_TARADINHA=Config.CHECKOUT_TARADINHA), unsafe_allow_html=True)
 
         st.markdown("""
-        <div class="package-box package-premium">
+        <div class="package-box package-MOLHADINHA">
             <div class="package-badge">POPULAR</div>
             <div class="package-header">
-                <h3 style="color: #9400d3;">PREMIUM</h3>
-                <div class="package-price" style="color: #9400d3;">R$ 99,90</div>
+                <h3 style="color: #9400d3;">MOLHADINHA</h3>
+                <div class="package-price" style="color: #9400d3;">R$ 39,99</div>
                 <small>experiência completa</small>
             </div>
             <ul class="package-benefits">
-                <li>20 fotos exclusivas</li>
-                <li>5 vídeos premium</li>
+                <li>25 fotos exclusivas</li>
+                <li>25 vídeos premium</li>
                 <li>Fotos Peito</li>
                 <li>Fotos Bunda</li>
                 <li>Fotos Buceta</li>
@@ -1164,7 +1164,7 @@ class NewPages:
                 <li>Videos Masturbando</li>
             </ul>
             <div style="position: absolute; bottom: 20px; width: calc(100% - 40px);">
-                <a href="{checkout_premium}" target="_blank" rel="noopener noreferrer" style="
+                <a href="{checkout_MOLHADINHA}" target="_blank" rel="noopener noreferrer" style="
                     display: block;
                     background: linear-gradient(45deg, #9400d3, #ff1493);
                     color: white;
@@ -1181,18 +1181,18 @@ class NewPages:
                 </a>
             </div>
         </div>
-        """.format(checkout_premium=Config.CHECKOUT_PREMIUM), unsafe_allow_html=True)
+        """.format(checkout_MOLHADINHA=Config.CHECKOUT_MOLHADINHA), unsafe_allow_html=True)
 
         st.markdown("""
-        <div class="package-box package-extreme">
+        <div class="package-box package-SAFADINHA">
             <div class="package-header">
-                <h3 style="color: #ff0066;">EXTREME</h3>
-                <div class="package-price" style="color: #ff0066;">R$ 199,90</div>
+                <h3 style="color: #ff0066;">SAFADINHA</h3>
+                <div class="package-price" style="color: #ff0066;">R$ 59,99</div>
                 <small>para verdadeiros fãs</small>
             </div>
             <ul class="package-benefits">
-                <li>30 fotos ultra-exclusivas</li>
-                <li>10 Videos Exclusivos</li>
+                <li>40 fotos ultra-exclusivas</li>
+                <li>40 Videos Exclusivos</li>
                 <li>Fotos Peito</li>
                 <li>Fotos Bunda</li>
                 <li>Fotos Buceta</li>
@@ -1202,7 +1202,7 @@ class NewPages:
                 <li>Acesso a conteúdos futuros</li>
             </ul>
             <div style="position: absolute; bottom: 20px; width: calc(100% - 40px);">
-                <a href="{checkout_extreme}" target="_blank" rel="noopener noreferrer" style="
+                <a href="{checkout_SAFADINHA}" target="_blank" rel="noopener noreferrer" style="
                     display: block;
                     background: linear-gradient(45deg, #ff0066, #9400d3);
                     color: white;
@@ -1219,7 +1219,7 @@ class NewPages:
                 </a>
             </div>
         </div>
-        """.format(checkout_extreme=Config.CHECKOUT_EXTREME), unsafe_allow_html=True)
+        """.format(checkout_SAFADINHA=Config.CHECKOUT_SAFADINHA), unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1363,7 +1363,7 @@ class ChatService:
         formatted = []
         
         for msg in messages[-max_messages:]:
-            role = "Cliente" if msg["role"] == "user" else "Paloma"
+            role = "Cliente" if msg["role"] == "user" else "Mylle Alves"
             content = msg["content"]
             if content == "[ÁUDIO]":
                 content = "[Enviou um áudio sensual]"
@@ -1642,7 +1642,7 @@ def main():
             st.markdown("""
             <div style="text-align: center; margin: 50px 0;">
                 <img src="{profile_img}" width="120" style="border-radius: 50%; border: 3px solid #ff66b3;">
-                <h2 style="color: #ff66b3; margin-top: 15px;">Paloma</h2>
+                <h2 style="color: #ff66b3; margin-top: 15px;">Mylle Alves</h2>
                 <p style="font-size: 1.1em;">Estou pronta para você, amor...</p>
             </div>
             """.format(profile_img=Config.IMG_PROFILE), unsafe_allow_html=True)
@@ -1679,4 +1679,5 @@ def main():
     save_persistent_data()
 
 if __name__ == "__main__":
+
     main()
