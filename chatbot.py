@@ -27,8 +27,26 @@ st.set_page_config(
 st._config.set_option('client.caching', True)
 st._config.set_option('client.showErrorDetails', False)
 
-hide_streamlit_style = """
+# Novo estilo com tema mais quente (vermelho/roxo)
+hot_theme_style = """
 <style>
+    :root {
+        --primary-color: #ff2a6d;
+        --secondary-color: #d1005d;
+        --accent-color: #ff2a6d;
+        --dark-bg: #1a001a;
+        --light-bg: #330033;
+        --text-color: #ffffff;
+        --border-color: #ff2a6d;
+        --chat-user-bg: #ff2a6d;
+        --chat-model-bg: #4d004d;
+    }
+    
+    .stApp {
+        background: linear-gradient(135deg, var(--dark-bg) 0%, var(--light-bg) 100%);
+        color: var(--text-color);
+    }
+    
     #root > div:nth-child(1) > div > div > div > div > section > div {
         padding-top: 0rem;
     }
@@ -59,16 +77,90 @@ hide_streamlit_style = """
     [data-testid="stVerticalBlock"] {
         gap: 0.5rem !important;
     }
-    [data.testid="stHorizontalBlock"] {
+    [data-testid="stHorizontalBlock"] {
         gap: 0.5rem !important;
     }
     .stApp {
         margin: 0 !important;
         padding: 0 !important;
     }
+    
+    /* Estilo do chat estilo WhatsApp */
+    .chat-container {
+        height: calc(100vh - 150px);
+        overflow-y: auto;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        margin-bottom: 70px;
+    }
+    
+    .user-message {
+        background: var(--chat-user-bg);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 18px 18px 0 18px;
+        margin: 5px 0;
+        max-width: 70%;
+        margin-left: 30%;
+        text-align: right;
+    }
+    
+    .model-message {
+        background: var(--chat-model-bg);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 18px 18px 18px 0;
+        margin: 5px 0;
+        max-width: 70%;
+        border: 1px solid var(--border-color);
+    }
+    
+    .message-avatar {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 10px;
+    }
+    
+    .fixed-input {
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        background: var(--dark-bg);
+        padding: 10px;
+        border-radius: 20px;
+        border: 1px solid var(--border-color);
+        z-index: 1000;
+    }
+    
+    .sidebar-logo {
+        width: 280px;
+        height: auto;
+        object-fit: contain;
+        margin-left: -15px;
+        margin-top: -15px;
+    }
+    
+    .vip-badge {
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        padding: 15px;
+        border-radius: 8px;
+        color: white;
+        text-align: center;
+        margin: 10px 0;
+    }
+    
+    @media (min-width: 768px) {
+        .sidebar-logo {
+            width: 320px;
+        }
+    }
 </style>
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(hot_theme_style, unsafe_allow_html=True)
 
 # ======================
 # CONSTANTES E CONFIGURAÇÕES
@@ -82,8 +174,6 @@ class Config:
     CHECKOUT_SAFADINHA = "https://app.pushinpay.com.br/#/service/pay/9FACD395-EE65-458E-9B7E-FED750CC9CA9"
     MAX_REQUESTS_PER_SESSION = 30
     REQUEST_TIMEOUT = 30
-    AUDIO_FILE = "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Oi%20meu%20amor%20tudo%20bem.mp3"
-    AUDIO_DURATION = 7
     IMG_PROFILE = "https://i.ibb.co/vxnTYm0Q/BY-Admiregirls-su-Admiregirls-su-156.jpg"
     IMG_GALLERY = [
         "https://i.ibb.co/C3mDFyJV/BY-Admiregirls-su-Admiregirls-su-036.jpg",
@@ -103,13 +193,6 @@ class Config:
         "https://i.ibb.co/5KjX1J0/preview3.jpg",
         "https://i.ibb.co/0jq4Z0L/preview4.jpg"
     ]
-    # Links para redes sociais
-    SOCIAL_LINKS = {
-        "instagram": "https://instagram.com/myllealves",
-        "facebook": "https://facebook.com/myllealves",
-        "telegram": "https://t.me/myllealves",
-        "tiktok": "https://tiktok.com/@myllealves"
-    }
 
 # ======================
 # PERSISTÊNCIA DE ESTADO
@@ -186,7 +269,8 @@ def save_persistent_data():
     
     if new_data != saved_data:
         db.save_state(user_id, new_data)
-        # ======================
+
+# ======================
 # MODELOS DE DADOS
 # ======================
 class Persona:
@@ -202,7 +286,7 @@ class Persona:
     [PERSONALIDADE]
     - Super confiante e no controle da situação
     - Adora brincar e fazer joguinhos de sedução
-    - Sabe exatamente o que os homens querem ouir
+    - Sabe exatamente o que os homens querem ouvir
     - Nunca é óbvia demais, sempre deixa um ar de mistério
     - Transforma qualquer conversa em algo sensual
 
@@ -395,7 +479,6 @@ class CTAEngine:
                     "show": False
                 }
             }
-
 # ======================
 # SERVIÇOS DE BANCO DE DADOS
 # ======================
@@ -464,7 +547,7 @@ class ApiService:
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": f"{Persona.MylleAlves}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON con o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }},\n  \"preview\": {{\n    \"show\": true/false,\n    \"image_url\": \"url_da_imagem\"\n  }}\n}}"}]
+                    "parts": [{"text": f"{Persona.MylleAlves}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }},\n  \"preview\": {{\n    \"show\": true/false,\n    \"image_url\": \"url_da_imagem\"\n  }}\n}}"}]
                 }
             ],
             "generationConfig": {
@@ -511,25 +594,11 @@ class ApiService:
             st.error(f"Erro na API: {str(e)}")
             # Fallback para resposta gerada localmente
             return CTAEngine.generate_response(prompt)
-            # ======================
+
+# ======================
 # SERVIÇOS DE INTERFACE
 # ======================
 class UiService:
-    @staticmethod
-    def get_chat_audio_player():
-        return f"""
-        <div style="
-            background: linear-gradient(45deg, #ff66b3, #ff1493);
-            border-radius: 15px;
-            padding: 12px;
-            margin: 5px 0;
-        ">
-            <audio controls style="width:100%; height:40px;">
-                <source src="{Config.AUDIO_FILE}" type="audio/mp3">
-            </audio>
-        </div>
-        """
-
     @staticmethod
     def show_call_effect():
         LIGANDO_DELAY = 5
@@ -538,19 +607,19 @@ class UiService:
         call_container = st.empty()
         call_container.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #1e0033, #3c0066);
+            background: linear-gradient(135deg, #1a001a, #330033);
             border-radius: 20px;
             padding: 30px;
             max-width: 300px;
             margin: 0 auto;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            border: 2px solid #ff66b3;
+            border: 2px solid #ff2a6d;
             text-align: center;
             color: white;
             animation: pulse-ring 2s infinite;
         ">
             <div style="font-size: 3rem;">📱</div>
-            <h3 style="color: #ff66b3; margin-bottom: 5px;">Ligando para Mylle Alves...</h3>
+            <h3 style="color: #ff2a6d; margin-bottom: 5px;">Ligando para Mylle Alves...</h3>
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 15px;">
                 <div style="width: 10px; height: 10px; background: #4CAF50; border-radius: 50%;"></div>
                 <span style="font-size: 0.9rem;">Online agora</span>
@@ -568,7 +637,7 @@ class UiService:
         time.sleep(LIGANDO_DELAY)
         call_container.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #1e0033, #3c0066);
+            background: linear-gradient(135deg, #1a001a, #330033);
             border-radius: 20px;
             padding: 30px;
             max-width: 300px;
@@ -626,36 +695,6 @@ class UiService:
         container.empty()
 
     @staticmethod
-    def show_audio_recording_effect(container):
-        message = "Gravando um áudio"
-        dots = ""
-        start_time = time.time()
-        
-        while time.time() - start_time < Config.AUDIO_DURATION:
-            elapsed = time.time() - start_time
-            dots = "." * (int(elapsed) % 4)
-            
-            container.markdown(f"""
-            <div style="
-                color: #888;
-                font-size: 0.8em;
-                padding: 2px 8px;
-                border-radius: 10px;
-                background: rgba(0,0,0,0.05);
-                display: inline-block;
-                margin-left: 10px;
-                vertical-align: middle;
-                font-style: italic;
-            ">
-                {message}{dots}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            time.sleep(0.3)
-        
-        container.empty()
-
-    @staticmethod
     def age_verification():
         st.markdown("""
         <style>
@@ -663,10 +702,10 @@ class UiService:
                 max-width: 600px;
                 margin: 2rem auto;
                 padding: 2rem;
-                background: linear-gradient(145deg, #1e0033, #3c0066);
+                background: linear-gradient(145deg, #1a001a, #330033);
                 border-radius: 15px;
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(255, 102, 179, 0.2);
+                border: 1px solid rgba(255, 42, 109, 0.2);
                 color: white;
             }
             .age-header {
@@ -677,13 +716,13 @@ class UiService:
             }
             .age-icon {
                 font-size: 2.5rem;
-                color: #ff66b3;
+                color: #ff2a6d;
             }
             .age-title {
                 font-size: 1.8rem;
                 font-weight: 700;
                 margin: 0;
-                color: #ff66b3;
+                color: #ff2a6d;
             }
         </style>
         """, unsafe_allow_html=True)
@@ -718,18 +757,13 @@ class UiService:
             st.markdown("""
             <style>
                 [data-testid="stSidebar"] {
-                    background: linear-gradient(180deg, #1e0033 0%, #3c0066 100%) !important;
-                    border-right: 1px solid #ff66b3 !important;
+                    background: linear-gradient(180deg, #1a001a 0%, #330033 100%) !important;
+                    border-right: 1px solid #ff2a6d !important;
                 }
                 .sidebar-logo-container {
                     margin: -25px -25px 0px -25px;
                     padding: 0;
                     text-align: left;
-                }
-                .sidebar-logo {
-                    max-width: 100%;
-                    height: auto;
-                    margin-bottom: -10px;
                 }
                 .sidebar-header {
                     text-align: center; 
@@ -737,18 +771,10 @@ class UiService:
                 }
                 .sidebar-header img {
                     border-radius: 50%; 
-                    border: 2px solid #ff66b3;
+                    border: 2px solid #ff2a6d;
                     width: 80px;
                     height: 80px;
                     object-fit: cover;
-                }
-                .vip-badge {
-                    background: linear-gradient(45deg, #ff1493, #9400d3);
-                    padding: 15px;
-                    border-radius: 8px;
-                    color: white;
-                    text-align: center;
-                    margin: 10px 0;
                 }
                 .menu-item {
                     transition: all 0.3s;
@@ -756,19 +782,7 @@ class UiService:
                     border-radius: 5px;
                 }
                 .menu-item:hover {
-                    background: rgba(255, 102, 179, 0.2);
-                }
-                .sidebar-logo {
-                    width: 280px;
-                    height: auto;
-                    object-fit: contain;
-                    margin-left: -15px;
-                    margin-top: -15px;
-                }
-                @media (min-width: 768px) {
-                    .sidebar-logo {
-                        width: 320px;
-                    }
+                    background: rgba(255, 42, 109, 0.2);
                 }
                 [data-testid="stSidebarNav"] {
                     margin-top: -50px;
@@ -776,41 +790,6 @@ class UiService:
                 .sidebar-logo-container {
                     position: relative;
                     z-index: 1;
-                }
-                .social-button {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 8px;
-                    padding: 10px;
-                    border-radius: 5px;
-                    background: rgba(255, 102, 179, 0.1);
-                    border: 1px solid rgba(255, 102, 179, 0.2);
-                    color: white;
-                    text-decoration: none;
-                    transition: all 0.3s;
-                    margin-bottom: 8px;
-                }
-                .social-button:hover {
-                    background: rgba(255, 102, 179, 0.3);
-                    text-decoration: none;
-                    color: white;
-                }
-                .hot-section {
-                    background: linear-gradient(45deg, #ff1493, #9400d3);
-                    padding: 15px;
-                    border-radius: 8px;
-                    color: white;
-                    text-align: center;
-                    margin: 10px 0;
-                }
-                .hot-section h4 {
-                    margin: 0 0 10px 0;
-                    font-size: 1.1em;
-                }
-                .hot-section p {
-                    margin: 0;
-                    font-size: 0.9em;
                 }
             </style>
             """, unsafe_allow_html=True)
@@ -824,20 +803,11 @@ class UiService:
             st.markdown("""
             <div class="sidebar-header">
                 <img src="{profile_img}" alt="Mylle Alves">
-                <h3 style="color: #ff66b3; margin-top: 10px;">Mylle Alves Premium</h3>
+                <h3 style="color: #ff2a6d; margin-top: 10px;">Mylle Alves Premium</h3>
             </div>
             """.format(profile_img=Config.IMG_PROFILE), unsafe_allow_html=True)
             
             st.markdown("---")
-            
-            # Seção hot com tema mais sensual
-            st.markdown("""
-            <div class="hot-section">
-                <h4>🔥 CONTEÚDO EXCLUSIVO</h4>
-                <p>Fotos e vídeos quentes esperando por você!</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
             st.markdown("### Menu Exclusivo")
             
             menu_options = {
@@ -856,42 +826,33 @@ class UiService:
                         st.rerun()
             
             st.markdown("---")
-            st.markdown("### Redes Sociais")
+            st.markdown("### Sua Conta")
             
-            # Botões para redes sociais
-            st.markdown(f"""
-            <a href="{Config.SOCIAL_LINKS['instagram']}" target="_blank" class="social-button">
-                📷 Instagram
-            </a>
-            """, unsafe_allow_html=True)
-            
-            st.markdown(f"""
-            <a href="{Config.SOCIAL_LINKS['facebook']}" target="_blank" class="social-button">
-                📘 Facebook
-            </a>
-            """, unsafe_allow_html=True)
-            
-            st.markdown(f"""
-            <a href="{Config.SOCIAL_LINKS['telegram']}" target="_blank" class="social-button">
-                📢 Telegram
-            </a>
-            """, unsafe_allow_html=True)
-            
-            st.markdown(f"""
-            <a href="{Config.SOCIAL_LINKS['tiktok']}" target="_blank" class="social-button">
-                🎵 TikTok
-            </a>
+            st.markdown("""
+            <div style="
+                background: rgba(255, 42, 109, 0.1);
+                padding: 10px;
+                border-radius: 8px;
+                text-align: center;
+            ">
+                <p style="margin:0;">Acesse conteúdo exclusivo</p>
+            </div>
             """, unsafe_allow_html=True)
             
             st.markdown("---")
-            
-            # Seção hot adicional
+            st.markdown("### Conteúdo VIP")
             st.markdown("""
-            <div class="hot-section">
-                <h4>💦 CONTEÚDO MOLHADINHA</h4>
-                <p>Vídeos exclusivos me masturbando!</p>
+            <div class="vip-badge">
+                <p style="margin: 0 0 10px; font-weight: bold;">Acesso completo por apenas</p>
+                <p style="margin: 0; font-size: 1.5em; font-weight: bold;">R$ 29,90/mês</p>
+                <p style="margin: 10px 0 0; font-size: 0.8em;">Cancele quando quiser</p>
             </div>
             """, unsafe_allow_html=True)
+            
+            if st.button("Ver Conteúdo VIP", use_container_width=True, type="primary"):
+                st.session_state.current_page = "offers"
+                save_persistent_data()
+                st.rerun()
             
             st.markdown("---")
             st.markdown("""
@@ -905,7 +866,7 @@ class UiService:
     def show_gallery_page(conn):
         st.markdown("""
         <div style="
-            background: rgba(255, 20, 147, 0.1);
+            background: rgba(255, 42, 109, 0.1);
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 20px;
@@ -922,7 +883,7 @@ class UiService:
                     st.image(Config.IMG_GALLERY[idx], use_column_width=True)
                     st.markdown(f"""
                     <div style="text-align: center; margin-top: 10px;">
-                        <span style="color: #ff66b3; font-weight: bold;">Foto Exclusiva #{idx + 1}</span>
+                        <span style="color: #ff2a6d; font-weight: bold;">Foto Exclusiva #{idx + 1}</span>
                     </div>
                     """, unsafe_allow_html=True)
         
@@ -934,7 +895,7 @@ class UiService:
         with col1:
             st.markdown("""
             <div style="
-                background: linear-gradient(45deg, #ff1493, #9400d3);
+                background: linear-gradient(45deg, #ff2a6d, #d1005d);
                 padding: 20px;
                 border-radius: 10px;
                 color: white;
@@ -956,7 +917,7 @@ class UiService:
         with col2:
             st.markdown("""
             <div style="
-                background: linear-gradient(45deg, #ff1493, #9400d3);
+                background: linear-gradient(45deg, #ff2a6d, #d1005d);
                 padding: 20px;
                 border-radius: 10px;
                 color: white;
@@ -979,7 +940,7 @@ class UiService:
     def show_offers_page(conn):
         st.markdown("""
         <div style="
-            background: linear-gradient(45deg, #ff1493, #9400d3);
+            background: linear-gradient(45deg, #ff2a6d, #d1005d);
             padding: 20px;
             border-radius: 10px;
             color: white;
@@ -996,15 +957,15 @@ class UiService:
         with col1:
             st.markdown("""
             <div style="
-                background: rgba(255, 20, 147, 0.1);
+                background: rgba(255, 42, 109, 0.1);
                 padding: 20px;
                 border-radius: 10px;
-                border: 2px solid #ff1493;
+                border: 2px solid #ff2a6d;
                 text-align: center;
                 height: 400px;
             ">
-                <h3 style="color: #ff1493;">🔥 Taradinha</h3>
-                <div style="font-size: 2em; color: #ff1493; font-weight: bold;">R$ 9,90</div>
+                <h3 style="color: #ff2a6d;">🔥 Taradinha</h3>
+                <div style="font-size: 2em; color: #ff2a6d; font-weight: bold;">R$ 9,90</div>
                 <div style="margin: 20px 0;">
                     <p>✓ 20 fotos sensuais</p>
                     <p>✓ 1 vídeo curto</p>
@@ -1020,7 +981,7 @@ class UiService:
         with col2:
             st.markdown("""
             <div style="
-                background: linear-gradient(45deg, #ff1493, #9400d3);
+                background: linear-gradient(45deg, #ff2a6d, #d1005d);
                 padding: 20px;
                 border-radius: 10px;
                 color: white;
@@ -1045,15 +1006,15 @@ class UiService:
         with col3:
             st.markdown("""
             <div style="
-                background: rgba(148, 0, 211, 0.1);
+                background: rgba(209, 0, 93, 0.1);
                 padding: 20px;
                 border-radius: 10px;
-                border: 2px solid #9400d3;
+                border: 2px solid #d1005d;
                 text-align: center;
                 height: 400px;
             ">
-                <h3 style="color: #9400d3;">😈 Safadinha</h3>
-                <div style="font-size: 2em; color: #9400d3; font-weight: bold;">R$ 49,90</div>
+                <h3 style="color: #d1005d;">😈 Safadinha</h3>
+                <div style="font-size: 2em; color: #d1005d; font-weight: bold;">R$ 49,90</div>
                 <div style="margin: 20px 0;">
                     <p>✓ 100+ fotos explícitas</p>
                     <p>✓ 10+ vídeos completos</p>
@@ -1071,7 +1032,7 @@ class UiService:
         
         st.markdown("""
         <div style="
-            background: rgba(255, 20, 147, 0.05);
+            background: rgba(255, 42, 109, 0.05);
             padding: 20px;
             border-radius: 10px;
             text-align: center;
@@ -1081,82 +1042,6 @@ class UiService:
             <p>Se não gostar em 7 dias, devolvemos seu dinheiro!</p>
         </div>
         """, unsafe_allow_html=True)
-
-    @staticmethod
-    def show_home_page(conn):
-        col1, col2 = st.columns([1, 2])
-        
-        with col1:
-            st.image(Config.IMG_PROFILE, use_column_width=True)
-            st.markdown("""
-            <div style="text-align: center; margin-top: 10px;">
-                <h3 style="color: #ff66b3;">Mylle Alves</h3>
-                <p style="color: #888;">Online agora 💚</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("---")
-            
-            st.markdown("""
-            <div style="
-                background: rgba(255, 102, 179, 0.1);
-                padding: 15px;
-                border-radius: 10px;
-            ">
-                <h4>📊 Meu Perfil</h4>
-                <p>👙 85-60-90</p>
-                <p>📏 1.68m</p>
-                <p>🎂 22 anos</p>
-                <p>📍 São Paulo</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("""
-            <div style="
-                background: linear-gradient(45deg, #ff66b3, #ff1493);
-                padding: 20px;
-                border-radius: 10px;
-                color: white;
-                text-align: center;
-                margin-bottom: 20px;
-            ">
-                <h2>💋 Bem-vindo ao Meu Mundo</h2>
-                <p>Conversas quentes e conteúdo exclusivo esperando por você!</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("""
-            <div style="
-                background: rgba(255, 102, 179, 0.1);
-                padding: 20px;
-                border-radius: 10px;
-                margin-bottom: 20px;
-            ">
-                <h4>🎯 O que você encontra aqui:</h4>
-                <p>• 💬 Chat privado comigo</p>
-                <p>• 📸 Fotos exclusivas e sensuais</p>
-                <p>• 🎥 Vídeos quentes e explícitos</p>
-                <p>• 🎁 Conteúdo personalizado</p>
-                <p>• 🔞 Experiências únicas</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Preview images
-            st.markdown("### 🌶️ Prévia do Conteúdo")
-            preview_cols = st.columns(2)
-            for idx, col in enumerate(preview_cols):
-                if idx < len(Config.IMG_HOME_PREVIEWS):
-                    with col:
-                        st.image(Config.IMG_HOME_PREVIEWS[idx], use_column_width=True)
-            
-            st.markdown("---")
-            
-            if st.button("💬 Iniciar Conversa", use_container_width=True, type="primary"):
-                st.session_state.current_page = "messages"
-                save_persistent_data()
-                st.rerun()
-
 # ======================
 # SERVIÇOS DE CHAT
 # ======================
@@ -1238,7 +1123,7 @@ class ChatService:
                 margin: 5px 0;
             ">
                 <div style="
-                    background: linear-gradient(45deg, #ff66b3, #ff1493);
+                    background: linear-gradient(45deg, #ff2a6d, #d1005d);
                     color: white;
                     padding: 12px 16px;
                     border-radius: 18px 18px 0 18px;
@@ -1259,11 +1144,11 @@ class ChatService:
             with col2:
                 st.markdown(f"""
                 <div style="
-                    background: rgba(255, 102, 179, 0.1);
+                    background: rgba(255, 42, 109, 0.1);
                     padding: 12px 16px;
                     border-radius: 18px 18px 18px 0;
                     margin: 5px 0;
-                    border: 1px solid rgba(255, 102, 179, 0.2);
+                    border: 1px solid rgba(255, 42, 109, 0.2);
                 ">
                     {content}
                 </div>
@@ -1274,19 +1159,11 @@ class ChatService:
         st.markdown("""
         <style>
             .chat-header {
-                background: linear-gradient(45deg, #ff66b3, #ff1493);
+                background: linear-gradient(45deg, #ff2a6d, #d1005d);
                 padding: 15px;
                 border-radius: 10px;
                 color: white;
                 text-align: center;
-                margin-bottom: 20px;
-            }
-            .chat-container {
-                max-height: 500px;
-                overflow-y: auto;
-                padding: 10px;
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 10px;
                 margin-bottom: 20px;
             }
         </style>
@@ -1327,7 +1204,11 @@ class ChatService:
             
             st.markdown('</div>', unsafe_allow_html=True)
         
-        # Área de input
+        # Área de input fixa no rodapé
+        st.markdown("""
+        <div class="fixed-input">
+        """, unsafe_allow_html=True)
+        
         col1, col2 = st.columns([5, 1])
         
         with col1:
@@ -1341,6 +1222,8 @@ class ChatService:
         with col2:
             send_button = st.button("Enviar", use_container_width=True)
         
+        st.markdown("</div>", unsafe_allow_html=True)
+        
         # Processar mensagem de texto
         if send_button and user_input:
             resposta = ChatService.send_message(user_input, conn)
@@ -1350,9 +1233,85 @@ class ChatService:
             
             save_persistent_data()
             st.rerun()
+
+# ======================
+# SERVIÇOS DE INTERFACE (CONTINUAÇÃO)
+# ======================
+class UiService:
+    @staticmethod
+    def show_home_page(conn):
+        col1, col2 = st.columns([1, 2])
         
-        # Mostrar player de áudio fixo
-        st.markdown(UiService.get_chat_audio_player(), unsafe_allow_html=True)
+        with col1:
+            st.image(Config.IMG_PROFILE, use_column_width=True)
+            st.markdown("""
+            <div style="text-align: center; margin-top: 10px;">
+                <h3 style="color: #ff2a6d;">Mylle Alves</h3>
+                <p style="color: #888;">Online agora 💚</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            st.markdown("""
+            <div style="
+                background: rgba(255, 42, 109, 0.1);
+                padding: 15px;
+                border-radius: 10px;
+            ">
+                <h4>📊 Meu Perfil</h4>
+                <p>👙 85-60-90</p>
+                <p>📏 1.68m</p>
+                <p>🎂 22 anos</p>
+                <p>📍 São Paulo</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div style="
+                background: linear-gradient(45deg, #ff2a6d, #d1005d);
+                padding: 20px;
+                border-radius: 10px;
+                color: white;
+                text-align: center;
+                margin-bottom: 20px;
+            ">
+                <h2>💋 Bem-vindo ao Meu Mundo</h2>
+                <p>Conversas quentes e conteúdo exclusivo esperando por você!</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div style="
+                background: rgba(255, 42, 109, 0.1);
+                padding: 20px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+            ">
+                <h4>🎯 O que você encontra aqui:</h4>
+                <p>• 💬 Chat privado comigo</p>
+                <p>• 📸 Fotos exclusivas e sensuais</p>
+                <p>• 🎥 Vídeos quentes e explícitos</p>
+                <p>• 🎁 Conteúdo personalizado</p>
+                <p>• 🔞 Experiências únicas</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Preview images
+            st.markdown("### 🌶️ Prévia do Conteúdo")
+            preview_cols = st.columns(2)
+            for idx, col in enumerate(preview_cols):
+                if idx < len(Config.IMG_HOME_PREVIEWS):
+                    with col:
+                        st.image(Config.IMG_HOME_PREVIEWS[idx], use_column_width=True)
+            
+            st.markdown("---")
+            
+            if st.button("💬 Iniciar Conversa", use_container_width=True, type="primary"):
+                st.session_state.current_page = "messages"
+                save_persistent_data()
+                st.rerun()
 
 # ======================
 # INICIALIZAÇÃO E CONTROLE PRINCIPAL
@@ -1419,3 +1378,279 @@ def main():
 
 if __name__ == "__main__":
     main()
+# ======================
+# INICIALIZAÇÃO E CONTROLE PRINCIPAL (CONTINUAÇÃO)
+# ======================
+
+# Esta é a continuação do código principal
+# A função main() já foi definida na parte anterior
+
+# Garantir que o código seja executado corretamente
+if __name__ == "__main__":
+    main()
+
+# ======================
+# FUNÇÕES ADICIONAIS E MELHORIAS
+# ======================
+
+# Adicionando funcionalidade de simulação de gravação de áudio
+def simulate_audio_recording():
+    """Simula o envio de um áudio pela modelo"""
+    if 'audio_sent' not in st.session_state:
+        st.session_state.audio_sent = False
+    
+    if not st.session_state.audio_sent and st.session_state.current_page == "messages":
+        # Aguardar um pouco antes de enviar o áudio
+        time.sleep(2)
+        
+        # Simular gravação de áudio
+        status_container = st.empty()
+        status_container.markdown("""
+        <div style="
+            color: #888;
+            font-size: 0.8em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.05);
+            display: inline-block;
+            margin-left: 10px;
+            vertical-align: middle;
+            font-style: italic;
+        ">
+            Mylle está gravando um áudio...
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Simular tempo de gravação
+        time.sleep(3)
+        status_container.empty()
+        
+        # Adicionar mensagem de áudio da modelo
+        audio_message = {
+            "text": "Oi amor, tudo bem? Acabei de gravar um áudio especial para você! 😘 Quer ouvir?",
+            "cta": {
+                "show": True,
+                "label": "Ouvir Áudio",
+                "target": "offers"
+            },
+            "preview": {
+                "show": False
+            }
+        }
+        
+        st.session_state.messages.append({"role": "assistant", "content": json.dumps(audio_message)})
+        st.session_state.audio_sent = True
+        save_persistent_data()
+
+# ======================
+# OTIMIZAÇÕES DE PERFORMANCE
+# ======================
+
+# Cache para melhor performance
+@st.cache_resource
+def get_database_connection():
+    return DatabaseService.init_db()
+
+# ======================
+# TRATAMENTO DE ERROS
+# ======================
+
+def handle_api_errors(func):
+    """Decorator para tratamento de erros da API"""
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except requests.exceptions.RequestException as e:
+            st.error("Erro de conexão. Por favor, tente novamente.")
+            return CTAEngine.generate_response(args[0] if args else "")
+        except Exception as e:
+            st.error("Ocorreu um erro inesperado.")
+            return CTAEngine.generate_response(args[0] if args else "")
+    return wrapper
+
+# Aplicar decorator de tratamento de erro
+ApiService.ask_gemini = handle_api_errors(ApiService.ask_gemini)
+
+# ======================
+# MELHORIAS DE USABILIDADE
+# ======================
+
+def scroll_to_bottom():
+    """Função para rolar automaticamente para o final do chat"""
+    js = """
+    <script>
+        function scrollToBottom() {
+            var chatContainer = document.querySelector('.chat-container');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+        setTimeout(scrollToBottom, 100);
+    </script>
+    """
+    st.components.v1.html(js, height=0)
+
+# ======================
+# VALIDAÇÕES ADICIONAIS
+# ======================
+
+def validate_user_input(text):
+    """Valida o input do usuário para conteúdo inadequado"""
+    if not text or text.strip() == "":
+        return False
+    
+    # Lista de palavras proibidas (exemplo básico)
+    forbidden_words = ["spam", "propaganda", "http://", "https://", "www."]
+    
+    for word in forbidden_words:
+        if word in text.lower():
+            return False
+    
+    return True
+
+# ======================
+# ATUALIZAÇÃO DO CHAT SERVICE
+# ======================
+
+# Atualizar o método show_chat_interface para incluir rolagem automática
+def updated_show_chat_interface(conn):
+    st.markdown("""
+    <style>
+        .chat-header {
+            background: linear-gradient(45deg, #ff2a6d, #d1005d);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="chat-header">
+        <h3>💬 Chat com Mylle Alves</h3>
+        <p>Online agora - Respondendo rápido! 💚</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Container do chat
+    chat_container = st.container()
+    
+    with chat_container:
+        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+        
+        # Mostrar histórico de mensagens
+        for msg in st.session_state.messages:
+            if msg["role"] == "user":
+                ChatService.display_chat_message("user", msg["content"])
+            else:
+                try:
+                    content_data = json.loads(msg["content"])
+                    ChatService.display_chat_message("assistant", content_data["text"])
+                    
+                    # Mostrar prévia se existir
+                    if content_data.get("preview", {}).get("show"):
+                        st.image(
+                            content_data["preview"]["image_url"],
+                            use_column_width=True,
+                            caption="📸 Presentinho para você! 😘"
+                        )
+                
+                except json.JSONDecodeError:
+                    ChatService.display_chat_message("assistant", msg["content"])
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Rolagem automática para o final
+    scroll_to_bottom()
+    
+    # Área de input fixa no rodapé
+    st.markdown("""
+    <div class="fixed-input">
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([5, 1])
+    
+    with col1:
+        user_input = st.text_input(
+            "Digite sua mensagem...",
+            key="user_input",
+            placeholder="Oi linda, como você está?",
+            label_visibility="collapsed"
+        )
+    
+    with col2:
+        send_button = st.button("Enviar", use_container_width=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Processar mensagem de texto
+    if send_button and user_input:
+        if validate_user_input(user_input):
+            resposta = ChatService.send_message(user_input, conn)
+            
+            # Adicionar resposta ao histórico
+            st.session_state.messages.append({"role": "assistant", "content": json.dumps(resposta)})
+            
+            save_persistent_data()
+            st.rerun()
+        else:
+            st.error("Por favor, digite uma mensagem válida.")
+
+# Substituir a função original pela atualizada
+ChatService.show_chat_interface = updated_show_chat_interface
+
+# ======================
+# INICIALIZAÇÃO AUTOMÁTICA DE ÁUDIO
+# ======================
+
+# Adicionar simulação de áudio após a inicialização
+def enhanced_main():
+    # Carregar dados persistentes
+    load_persistent_data()
+    
+    # Inicializar sessão
+    initialize_session()
+    
+    # Inicializar banco de dados
+    conn = DatabaseService.init_db()
+    
+    # Verificação de idade
+    if not st.session_state.get('age_verified', False):
+        UiService.age_verification()
+        return
+    
+    # Configurar sidebar
+    UiService.setup_sidebar()
+    
+    # Efeito de chamada inicial
+    if not st.session_state.connection_complete:
+        UiService.show_call_effect()
+        st.session_state.connection_complete = True
+        save_persistent_data()
+        st.rerun()
+    
+    # Simular áudio se estiver na página de mensagens
+    if st.session_state.current_page == "messages":
+        simulate_audio_recording()
+    
+    # Gerenciar páginas
+    if st.session_state.current_page == "home":
+        UiService.show_home_page(conn)
+    
+    elif st.session_state.current_page == "messages":
+        ChatService.show_chat_interface(conn)
+    
+    elif st.session_state.current_page == "gallery":
+        UiService.show_gallery_page(conn)
+    
+    elif st.session_state.current_page == "offers":
+        UiService.show_offers_page(conn)
+    
+    # Salvar estado persistentemente
+    save_persistent_data()
+
+# Substituir a função main original pela enhanced
+if __name__ == "__main__":
+    enhanced_main()
