@@ -82,7 +82,7 @@ class Config:
     CHECKOUT_SAFADINHA = "https://app.pushinpay.com.br/#/service/pay/9FACD395-EE65-458E-9B7E-FED750CC9CA9"
     MAX_REQUESTS_PER_SESSION = 30
     REQUEST_TIMEOUT = 30
-    AUDIO_FILE = "https://github.com/andrearagaoregis/MylleAlves/raw/refs/heads/main/assets/Oi%20meu%20amor%20tudo%20bem.mp3"
+    # AUDIO_FILE removed as we no longer want initial audio
     AUDIO_DURATION = 7
     IMG_PROFILE = "https://i.ibb.co/vxnTYm0Q/BY-Admiregirls-su-Admiregirls-su-156.jpg"
     IMG_GALLERY = [
@@ -103,6 +103,19 @@ class Config:
         "https://i.ibb.co/5KjX1J0/preview3.jpg",
         "https://i.ibb.co/0jq4Z0L/preview4.jpg"
     ]
+    # Redes sociais
+    SOCIAL_LINKS = {
+        "Instagram": "https://www.instagram.com/",
+        "Facebook": "https://www.facebook.com/",
+        "Prévias Telegram": "https://t.me/",  # ajuste o link real
+        "TikTok": "https://www.tiktok.com/"
+    }
+    SOCIAL_ICONS = {
+        "Instagram": "📸",
+        "Facebook": "📘",
+        "Prévias Telegram": "✈️",
+        "TikTok": "🎵"
+    }
 
 # ======================
 # PERSISTÊNCIA DE ESTADO
@@ -458,7 +471,7 @@ class ApiService:
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": f"{Persona.MylleAlves}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"text\": \"sua resposta\",\n  \"cta\": {{\n    \"show\": true/false,\n    \"label\": \"texto do botão\",\n    \"target\": \"página\"\n  }},\n  \"preview\": {{\n    \"show\": true/false,\n    \"image_url\": \"url_da_imagem\"\n  }}\n}}"}]
+                    "parts": [{"text": f"{Persona.MylleAlves}\n\nHistórico da Conversa:\n{conversation_history}\n\nÚltima mensagem do cliente: '{prompt}'\n\nResponda em JSON com o formato:\n{{\n  \"[...]
                 }
             ],
             "generationConfig": {
@@ -511,19 +524,19 @@ class ApiService:
 # ======================
 class UiService:
     @staticmethod
-    def get_chat_audio_player():
-        return f"""
-        <div style="
-            background: linear-gradient(45deg, #ff66b3, #ff1493);
-            border-radius: 15px;
-            padding: 12px;
-            margin: 5px 0;
-        ">
-            <audio controls style="width:100%; height:40px;">
-                <source src="{Config.AUDIO_FILE}" type="audio/mp3">
-            </audio>
-        </div>
-        """
+    def get_chat_initial_greeting():
+        return (
+            "<div style='"
+            "background: linear-gradient(45deg, #ff66b3, #ff1493);"
+            "border-radius: 15px;"
+            "padding: 12px;"
+            "margin: 5px 0;"
+            "color: white;"
+            "'>"
+            "Oi meu amor, tudo bem? 😘<br>"
+            "Estou aqui para te deixar com água na boca... Pergunta o que quiser, quero te provocar bastante! 😈"
+            "</div>"
+        )
 
     @staticmethod
     def show_call_effect():
@@ -599,36 +612,6 @@ class UiService:
             
             if status_type == "typing":
                 dots = "." * (int(elapsed * 2) % 4)
-            
-            container.markdown(f"""
-            <div style="
-                color: #888;
-                font-size: 0.8em;
-                padding: 2px 8px;
-                border-radius: 10px;
-                background: rgba(0,0,0,0.05);
-                display: inline-block;
-                margin-left: 10px;
-                vertical-align: middle;
-                font-style: italic;
-            ">
-                {message}{dots}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            time.sleep(0.3)
-        
-        container.empty()
-
-    @staticmethod
-    def show_audio_recording_effect(container):
-        message = "Gravando um áudio"
-        dots = ""
-        start_time = time.time()
-        
-        while time.time() - start_time < Config.AUDIO_DURATION:
-            elapsed = time.time() - start_time
-            dots = "." * (int(elapsed) % 4)
             
             container.markdown(f"""
             <div style="
@@ -737,14 +720,6 @@ class UiService:
                     height: 80px;
                     object-fit: cover;
                 }
-                .vip-badge {
-                    background: linear-gradient(45deg, #ff1493, #9400d3);
-                    padding: 15px;
-                    border-radius: 8px;
-                    color: white;
-                    text-align: center;
-                    margin: 10px 0;
-                }
                 .menu-item {
                     transition: all 0.3s;
                     padding: 10px;
@@ -772,6 +747,26 @@ class UiService:
                     position: relative;
                     z-index: 1;
                 }
+                .social-menu-btn {
+                    margin-bottom: 7px;
+                    width: 100%;
+                    background: linear-gradient(45deg, #ff66b3, #ff1493);
+                    color: white !important;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 8px 0;
+                    font-weight: bold;
+                    font-size: 1em;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    justify-content: center;
+                    transition: background 0.2s;
+                }
+                .social-menu-btn:hover {
+                    background: linear-gradient(45deg, #ff1493, #ff66b3);
+                    color: #fff !important;
+                }
             </style>
             """, unsafe_allow_html=True)
             
@@ -787,17 +782,15 @@ class UiService:
                 <h3 style="color: #ff66b3; margin-top: 10px;">Mylle Alves Premium</h3>
             </div>
             """.format(profile_img=Config.IMG_PROFILE), unsafe_allow_html=True)
-            
+
             st.markdown("---")
             st.markdown("### Menu Exclusivo")
-            
             menu_options = {
                 "Início": "home",
                 "Galeria Privada": "gallery",
                 "Mensagens": "messages",
                 "Ofertas Especiais": "offers"
             }
-            
             for option, page in menu_options.items():
                 if st.button(option, use_container_width=True, key=f"menu_{page}"):
                     if st.session_state.current_page != page:
@@ -805,36 +798,17 @@ class UiService:
                         st.session_state.last_action = f"page_change_to_{page}"
                         save_persistent_data()
                         st.rerun()
-            
+
             st.markdown("---")
-            st.markdown("### Sua Conta")
-            
-            st.markdown("""
-            <div style="
-                background: rgba(255, 20, 147, 0.1);
-                padding: 10px;
-                border-radius: 8px;
-                text-align: center;
-            ">
-                <p style="margin:0;">Acesse conteúdo exclusivo</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("---")
-            st.markdown("### Conteúdo VIP")
-            st.markdown("""
-            <div class="vip-badge">
-                <p style="margin: 0 0 10px; font-weight: bold;">Acesso completo por apenas</p>
-                <p style="margin: 0; font-size: 1.5em; font-weight: bold;">R$ 29,90/mês</p>
-                <p style="margin: 10px 0 0; font-size: 0.8em;">Cancele quando quiser</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("Ver Conteúdo VIP", use_container_width=True, type="primary"):
-                st.session_state.current_page = "offers"
-                save_persistent_data()
-                st.rerun()
-            
+            st.markdown("### Redes Sociais")
+            for name, url in Config.SOCIAL_LINKS.items():
+                btn_label = f"{Config.SOCIAL_ICONS.get(name, '')} {name}"
+                # Usar markdown com link, formatando como botão estilizado
+                st.markdown(
+                    f"""<a href="{url}" target="_blank"><button class="social-menu-btn">{btn_label}</button></a>""",
+                    unsafe_allow_html=True
+                )
+
             st.markdown("---")
             st.markdown("""
             <div style="text-align: center; font-size: 0.7em; color: #888;">
@@ -1243,9 +1217,12 @@ class ChatService:
         
         # Container do chat
         chat_container = st.container()
-        
         with chat_container:
             st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+            
+            # Mensagem inicial de texto (primeira mensagem da assistente)
+            if len(st.session_state.messages) == 0:
+                ChatService.display_chat_message("assistant", UiService.get_chat_initial_greeting())
             
             # Mostrar histórico de mensagens
             for msg in st.session_state.messages:
@@ -1283,45 +1260,7 @@ class ChatService:
         with col2:
             send_button = st.button("Enviar", use_container_width=True)
         
-        # Botão de áudio
-        audio_col1, audio_col2 = st.columns([2, 1])
-        with audio_col1:
-            if st.button("🎤 Enviar Áudio", use_container_width=True):
-                status_container = st.empty()
-                UiService.show_audio_recording_effect(status_container)
-                
-                # Adicionar mensagem de áudio
-                st.session_state.messages.append({"role": "user", "content": "[ÁUDIO]"})
-                DatabaseService.save_message(
-                    conn,
-                    get_user_id(),
-                    st.session_state.session_id,
-                    "user",
-                    "[ÁUDIO]"
-                )
-                
-                # Resposta automática para áudio
-                resposta = {
-                    "text": "Que voz gostosa! Adoro quando me mandam áudio... Me deixou com vontade de te ouvir mais! 😏 Quer que eu também te mande um áudio especial?",
-                    "cta": {
-                        "show": False
-                    },
-                    "preview": {
-                        "show": False
-                    }
-                }
-                
-                st.session_state.messages.append({"role": "assistant", "content": json.dumps(resposta)})
-                DatabaseService.save_message(
-                    conn,
-                    get_user_id(),
-                    st.session_state.session_id,
-                    "assistant",
-                    json.dumps(resposta)
-                )
-                
-                save_persistent_data()
-                st.rerun()
+        # NÃO HÁ MAIS BOTÃO DE ÁUDIO
         
         # Processar mensagem de texto
         if send_button and user_input:
@@ -1332,9 +1271,6 @@ class ChatService:
             
             save_persistent_data()
             st.rerun()
-        
-        # Mostrar player de áudio fixo
-        st.markdown(UiService.get_chat_audio_player(), unsafe_allow_html=True)
 
 # ======================
 # INICIALIZAÇÃO E CONTROLE PRINCIPAL
