@@ -1,11 +1,9 @@
-import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), "modules"))
-
 from modules import antifake
 import os, time, random, itertools
 import streamlit as st
 from modules import antifake
-
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), "modules"))
 st.set_page_config(page_title="Mylle Chat", page_icon="💖", layout="centered")
 
 def humanize_text(text: str) -> str:
