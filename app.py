@@ -4,7 +4,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "modules"))
 
 import time, random, itertools
 import streamlit as st
-from modules import antifake
+from  antifake
 
 st.set_page_config(page_title="Mylle Chat", page_icon="💖", layout="centered")
 
