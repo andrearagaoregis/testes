@@ -1,3 +1,8 @@
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), "modules"))
+
+from modules import antifake
+
 from modules import antifake
 import os, time, random, itertools
 import streamlit as st
