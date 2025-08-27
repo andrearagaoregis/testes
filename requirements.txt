@@ -1,9 +1,0 @@
-streamlit
-openai
-transformers
-torch
-pandas
-emoji
-Unidecode
-pytz
-deep-translator
